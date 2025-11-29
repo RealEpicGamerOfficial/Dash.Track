@@ -18,10 +18,17 @@
             background-color: #0d1117; /* GitHub Dark Mode / VS Code Dark */
         }
         .ui-card {
-            background-color: #161b22; /* Darker Card background */
+            background-color: rgba(22, 27, 34, 0.75); /* #161b22 with 75% opacity */
+            backdrop-filter: blur(12px);
             border: 1px solid #30363d;
             border-radius: 0.75rem;
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+            /* Add consistent top border and transition */
+            border-top: 4px solid #2dd4bf; 
+            transition: all 0.3s ease;
+        }
+        .ui-card:hover {
+            box-shadow: 0 8px 24px rgba(45, 212, 191, 0.2); /* Faint cyan glow on hover */
         }
         /* Primary Accent Color: Cyan/Teal */
         .accent-primary { color: #2dd4bf; } 
@@ -70,6 +77,7 @@
             background-color: #1a1b24;
             border: 1px solid #30363d;
             color: #cbd5e1; /* Increased contrast for inactive text */
+            transition: all 0.2s ease;
         }
         .btn-toggle.active {
             background-color: #2dd4bf; /* Cyan-400 */
@@ -77,6 +85,24 @@
             border-color: #2dd4bf;
             box-shadow: 0 0 10px rgba(45, 212, 191, 0.5);
         }
+
+        /* Redesign Styles for Toggles */
+        .segmented-btn-active {
+            background-color: #2dd4bf; 
+            color: #0d1117;
+            box-shadow: 0 2px 8px rgba(45, 212, 191, 0.3);
+            font-weight: 700;
+        }
+        .segmented-btn-inactive {
+            color: #9ca3af; /* Gray-400 */
+            background-color: transparent;
+        }
+
+        /* AI Detection Button Colors based on state (managed by JS) */
+        .ai-v1 { background-color: #d97706; color: #fff; box-shadow: 0 0 10px rgba(245, 158, 11, 0.5); } /* Amber */
+        .ai-v2 { background-color: #2dd4bf; color: #0d1117; box-shadow: 0 0 10px rgba(45, 212, 191, 0.5); } /* Cyan */
+        .ai-off { background-color: #ef4444; color: #fff; box-shadow: 0 0 10px rgba(239, 68, 68, 0.5); } /* Red */
+
 
         /* Slider Thumb/Track */
         .range-slider {
@@ -171,23 +197,34 @@
             <!-- RIGHT COLUMN: CONTROL PANEL -->
             <div class="lg:col-span-1 space-y-6">
 
-                <!-- 1. CORE TOGGLES CARD -->
-                <div class="ui-card p-4 space-y-4">
-                    <h2 class="text-xl font-bold border-b border-gray-700 pb-2 flex items-center accent-primary">
-                        <span class="material-icons mr-2 text-xl">tune</span> System Core Toggles
+                <!-- 1. CORE TOGGLES CARD - REDESIGNED -->
+                <div class="ui-card p-6 space-y-5">
+                    <h2 class="text-xl font-bold pb-3 flex items-center accent-primary">
+                        <span class="material-icons mr-2 text-xl">tune</span> Core System Toggles
                     </h2>
                     
-                    <div class="grid grid-cols-2 gap-3">
-                        <!-- Mode Toggle -->
-                        <button id="modeToggle" onclick="toggleMode()" class="p-3 btn-toggle active rounded-lg text-sm flex flex-col items-center disabled:opacity-50" disabled>
-                            <span class="material-icons text-3xl mb-1" id="modeIcon">filter_b_and_w</span>
-                            <span id="modeText" class="font-semibold">Depth Map</span>
-                        </button>
-                        
-                        <!-- AI Model Selector -->
-                        <button id="aiDetectionToggle" onclick="toggleAIDetectionMode()" class="p-3 btn-toggle active rounded-lg text-sm flex flex-col items-center disabled:opacity-50" disabled>
-                            <span class="material-icons text-3xl mb-1 text-yellow-400" id="aiIcon">model_training</span>
-                            <span id="aiText" class="font-semibold"><span class="font-semibold text-yellow-400">AI Detection: V1</span></span>
+                    <!-- Display Mode Selector (Segmented Control Style) -->
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-400 mb-2">Display Mode</label>
+                        <div id="modeToggleContainer" class="flex p-1 rounded-lg bg-gray-800/50">
+                            <!-- Live Video Button -->
+                            <button id="modeLiveVideo" onclick="window.setMode(false)" class="flex-1 py-2 text-sm font-semibold rounded-lg transition-colors duration-200 flex items-center justify-center segmented-btn-inactive" disabled>
+                                <span class="material-icons text-xl mr-1">photo_camera</span> Live Video
+                            </button>
+                            <!-- Depth Map Button -->
+                            <button id="modeDepthMap" onclick="window.setMode(true)" class="flex-1 py-2 text-sm font-semibold rounded-lg transition-colors duration-200 flex items-center justify-center segmented-btn-active" disabled>
+                                <span class="material-icons text-xl mr-1">filter_b_and_w</span> Depth Map
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- AI Detection Mode (Cycle Button, enhanced) -->
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-400 mb-2">AI Processing Engine</label>
+                        <!-- The class will be updated by JS to ai-v1, ai-v2, or ai-off -->
+                        <button id="aiDetectionToggle" onclick="toggleAIDetectionMode()" class="w-full py-3 px-4 rounded-lg text-sm font-bold flex items-center justify-center transition-all duration-200 disabled:opacity-50 ai-v1" disabled>
+                            <span class="material-icons text-2xl mr-2" id="aiIcon">model_training</span>
+                            <span id="aiText">AI Detection: V1</span>
                         </button>
                     </div>
                 </div>
@@ -214,12 +251,12 @@
                     </h2>
                     <div class="grid grid-cols-2 gap-3">
                          <!-- RTD Recording Button -->
-                        <button id="recordButton" onclick="toggleRecording()" class="py-2 bg-gray-700 hover:bg-red-700 transition duration-300 text-white font-semibold rounded-lg shadow-inner flex items-center justify-center text-sm disabled:opacity-50" disabled>
+                        <button id="recordButton" onclick="toggleRecording()" class="py-2 bg-gray-700 hover:bg-red-700 transition-all duration-200 text-white font-semibold rounded-lg shadow-inner flex items-center justify-center text-sm disabled:opacity-50" disabled>
                             <span class="material-icons text-xl mr-1" id="recordIcon">videocam_off</span>
                             <span id="recordText">Start RTD Record</span>
                         </button>
                         <!-- Fullscreen Button -->
-                        <button id="fullscreenButton" onclick="requestFullscreen()" class="py-2 bg-gray-700 hover:bg-gray-600 transition duration-300 text-white font-semibold rounded-lg shadow-inner flex items-center justify-center text-sm disabled:opacity-50" disabled>
+                        <button id="fullscreenButton" onclick="toggleFullscreen()" class="py-2 bg-gray-700 hover:bg-gray-600 transition-all duration-200 text-white font-semibold rounded-lg shadow-inner flex items-center justify-center text-sm disabled:opacity-50" disabled>
                             <span class="material-icons text-xl mr-1">fullscreen</span>
                             Maximize View
                         </button>
@@ -233,7 +270,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, setPersistence, browserSessionPersistence } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, setLogLevel, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // --- Global Firebase Configuration (MANDATORY) ---
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
@@ -264,6 +301,8 @@
                         unsubscribe(); 
                         if (user) {
                             userId = user.uid;
+                            // --- NEW: Load user preferences once authenticated ---
+                            window.loadAndSyncPreferences(userId, db, appId);
                             resolve();
                         } else {
                             try {
@@ -274,6 +313,8 @@
                                     const userCredential = await signInAnonymously(auth);
                                     userId = userCredential.user.uid;
                                 }
+                                // --- NEW: Load user preferences once authenticated ---
+                                window.loadAndSyncPreferences(userId, db, appId);
                                 resolve();
                             } catch (error) {
                                 console.error("Firebase Sign-In Error:", error);
@@ -290,6 +331,19 @@
         
         // Run Firebase initialization
         initializeFirebase();
+
+        // --- NEW: Expose db and auth state to window for the main script ---
+        // This is a simple way to pass state between <script type="module"> and <script>
+        window.getFirebaseServices = () => ({
+            db: db,
+            getUserId: () => userId, // Use a function to get the latest value
+            appId: appId,
+            // --- FIX: Expose Firestore functions to the other script scope ---
+            doc: doc,
+            setDoc: setDoc,
+            onSnapshot: onSnapshot
+        });
+
     </script>
     
     <!-- Application Logic Script -->
@@ -300,9 +354,6 @@
         const ctx = canvas.getContext('2d');
         const startButton = document.getElementById('startButton');
         const stopButton = document.getElementById('stopButton');
-        const modeToggle = document.getElementById('modeToggle');
-        const modeIcon = document.getElementById('modeIcon');
-        const modeText = document.getElementById('modeText');
         const fullscreenButton = document.getElementById('fullscreenButton');
         const sensitivityInput = document.getElementById('sensitivity');
         const sensitivityValueSpan = document.getElementById('sensitivityValue');
@@ -313,10 +364,15 @@
         const aiIcon = document.getElementById('aiIcon');
         const aiText = document.getElementById('aiText');
 
+        // --- NEW Toggles ---
+        const modeLiveVideo = document.getElementById('modeLiveVideo');
+        const modeDepthMap = document.getElementById('modeDepthMap');
+        
+
         // --- State Variables ---
         let animationFrameId;
         let stream;
-        let showProcessedMap = true;
+        let showProcessedMap = true; // Default to Depth Map
         let edgeSensitivity = 1.5; 
         let detectionModel = null;
         let detections = [];
@@ -340,55 +396,73 @@
 
         async function loadDetectionModel() {
             console.log('[SYS] Loading ML Module...');
+            // --- NEW: Set loading state on button ---
+            startButton.disabled = true;
+            startButton.innerHTML = `<span class="material-icons text-3xl mr-2 animate-spin">refresh</span> LOADING...`;
+
             try {
                 await tf.ready(); 
                 detectionModel = await cocoSsd.load();
                 
-                setDetectionMode('V1'); 
+                // Preferences might be loaded from Firebase *before* this,
+                // so we only set default if it's still V1 (or not set)
+                if (currentDetectionMode === 'V1') {
+                    setDetectionMode('V1');
+                }
 
                 console.log('[SYS] Module online. Ready for Power On.');
+                // --- NEW: Update button on success ---
+                startButton.innerHTML = `<span class="material-icons text-3xl mr-2">camera_indoor</span> POWER ON`;
                 startButton.disabled = false;
             } catch (error) {
                 console.error("[ERR] Model load failed. Check console.", error);
+                // --- NEW: Update button on failure ---
+                startButton.innerHTML = `<span class="material-icons text-3xl mr-2">error_outline</span> LOAD FAILED`;
+                startButton.classList.add('bg-red-600', 'text-white');
             }
         }
         
-        function setDetectionMode(mode) {
+        function updateAIDetectionButton(mode) {
             currentDetectionMode = mode;
-            aiDetectionToggle.classList.remove('active');
-            aiIcon.classList.remove('text-red-400', 'text-green-400', 'text-yellow-400');
-            
+            aiDetectionToggle.classList.remove('ai-v1', 'ai-v2', 'ai-off');
+            aiIcon.classList.remove('text-yellow-400', 'text-primary-cyan', 'text-red-400');
+            aiIcon.classList.add('text-white'); // Make icon white/dark depending on background
+
             let iconText = '';
-            let color = '';
-            let isActive = true;
+            let buttonClass = '';
 
             switch (mode) {
                 case 'V1':
                     detectionInterval = 500; 
                     detectionThreshold = 0.6;
-                    iconText = 'AI Detection: V1';
-                    color = 'text-yellow-400';
+                    iconText = 'AI Detection: V1 (Standard)';
+                    buttonClass = 'ai-v1';
                     break;
                 case 'V2':
                     detectionInterval = 750; 
                     detectionThreshold = 0.8;
                     iconText = 'AI Detection: V2 (Pico-Pro)'; 
-                    color = 'text-primary-cyan'; // Changed to primary-cyan/teal for V2
+                    buttonClass = 'ai-v2'; 
                     break;
                 case 'OFF':
                     detectionInterval = Infinity; 
                     detectionThreshold = 1.0;
                     detections = []; 
                     iconText = 'AI Detection: OFF';
-                    color = 'text-red-400';
-                    isActive = false;
+                    buttonClass = 'ai-off';
                     break;
             }
             
-            aiText.innerHTML = `<span class="font-semibold ${color}">${iconText}</span>`;
-            aiIcon.classList.add(color);
-            aiDetectionToggle.classList.toggle('active', isActive);
+            aiText.textContent = iconText;
+            aiDetectionToggle.classList.add(buttonClass);
             console.log(`[SYS] AI Detection set to ${mode}.`);
+            
+            // --- NEW: Save preference ---
+            saveUserPreferences();
+        }
+
+        function setDetectionMode(mode) {
+            updateAIDetectionButton(mode);
         }
 
         window.toggleAIDetectionMode = function() {
@@ -409,41 +483,79 @@
 
         // --- Controls and Interaction Functions ---
 
-        window.requestFullscreen = function() {
-            // --- USER REQUEST: Target the entire document for fullscreen ---
+        // --- RECoded Fullscreen Feature ---
+        window.toggleFullscreen = function() {
             const docEl = document.documentElement;
-            if (docEl.requestFullscreen) {
-                docEl.requestFullscreen();
-            } else if (docEl.webkitRequestFullscreen) {
-                docEl.webkitRequestFullscreen();
-            } else if (docEl.msRequestFullscreen) {
-                docEl.msRequestFullscreen();
+            const isFullscreen = document.fullscreenElement || document.webkitFullscreenElement || document.msFullscreenElement;
+
+            if (isFullscreen) {
+                // Exit fullscreen
+                if (document.exitFullscreen) {
+                    document.exitFullscreen();
+                } else if (document.webkitExitFullscreen) { 
+                    document.webkitExitFullscreen();
+                } else if (document.msExitFullscreen) { 
+                    document.msExitFullscreen();
+                }
+            } else {
+                // Enter fullscreen
+                if (docEl.requestFullscreen) {
+                    docEl.requestFullscreen();
+                } else if (docEl.webkitRequestFullscreen) {
+                    docEl.webkitRequestFullscreen();
+                } else if (docEl.msRequestFullscreen) {
+                    docEl.msRequestFullscreen();
+                }
             }
-            // --- END USER REQUEST ---
         }
 
         function handleFullscreenChange() {
-            const isFullscreen = document.fullscreenElement || document.webkitFullscreenElement;
-            console.log(`[SYS] Fullscreen Toggled: ${isFullscreen ? 'Engaged' : 'Disengaged'}`);
+            const isFullscreen = document.fullscreenElement || document.webkitFullscreenElement || document.msFullscreenElement;
+            const icon = fullscreenButton.querySelector('.material-icons');
+            // Check if text node exists (index 2 in childNodes) before accessing
+            const textNode = fullscreenButton.childNodes.length > 2 ? fullscreenButton.childNodes[2] : null; 
+
+            if (isFullscreen) {
+                icon.textContent = 'fullscreen_exit';
+                if (textNode) textNode.textContent = 'Minimize View';
+                console.log('[SYS] Fullscreen Engaged. Use ESC key to exit.');
+            } else {
+                icon.textContent = 'fullscreen';
+                if (textNode) textNode.textContent = 'Maximize View';
+                console.log('[SYS] Fullscreen Disengaged.');
+            }
         }
         document.addEventListener('fullscreenchange', handleFullscreenChange);
         document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+        document.addEventListener('msfullscreenchange', handleFullscreenChange);
+        // --- END RECoded Fullscreen Feature ---
         
         window.updateSensitivity = function(value) {
             edgeSensitivity = parseFloat(value);
             sensitivityValueSpan.textContent = edgeSensitivity.toFixed(1) + 'x';
+            // --- NEW: Save preference ---
+            saveUserPreferences();
         }
 
-        window.toggleMode = function() {
-            showProcessedMap = !showProcessedMap;
-            modeToggle.classList.toggle('active', showProcessedMap);
+        // --- REDESIGNED setMode function ---
+        window.setMode = function(showMap) {
+            showProcessedMap = showMap;
             
-            if (showProcessedMap) {
-                modeIcon.textContent = 'filter_b_and_w';
-                modeText.textContent = 'Depth Map';
+            const activeClass = 'segmented-btn-active';
+            const inactiveClass = 'segmented-btn-inactive';
+
+            if (showMap) {
+                modeDepthMap.classList.add(activeClass);
+                modeDepthMap.classList.remove(inactiveClass);
+                modeLiveVideo.classList.add(inactiveClass);
+                modeLiveVideo.classList.remove(activeClass);
+                console.log('[SYS] Display Mode set to Depth Map (Processed).');
             } else {
-                modeIcon.textContent = 'photo_camera'; 
-                modeText.textContent = 'Live Video';
+                modeLiveVideo.classList.add(activeClass);
+                modeLiveVideo.classList.remove(inactiveClass);
+                modeDepthMap.classList.add(inactiveClass);
+                modeDepthMap.classList.remove(activeClass);
+                console.log('[SYS] Display Mode set to Live Video (Raw).');
             }
         }
         
@@ -538,10 +650,11 @@
                     
                     console.log(`[SYS] Dash.Track Active. Resolution: ${canvas.width}x${canvas.height}.`);
                     stopButton.disabled = false;
-                    modeToggle.disabled = false;
                     fullscreenButton.disabled = false;
                     recordButton.disabled = false;
                     aiDetectionToggle.disabled = false; 
+                    modeLiveVideo.disabled = false; // Enable new mode buttons
+                    modeDepthMap.disabled = false; // Enable new mode buttons
                     
                     requestAnimationFrame(processFrame);
                     // Initial detection run (non-blocking)
@@ -572,18 +685,16 @@
             
             startButton.disabled = false;
             stopButton.disabled = true;
-            modeToggle.disabled = true;
             fullscreenButton.disabled = true;
             recordButton.disabled = true;
             aiDetectionToggle.disabled = true; 
+            modeLiveVideo.disabled = true; // Disable new mode buttons
+            modeDepthMap.disabled = true; // Disable new mode buttons
+
             detections = [];
             
             // Reset state and UI toggles
-            showProcessedMap = true;
-            setDetectionMode('V1'); 
-            modeToggle.classList.remove('active');
-            modeIcon.textContent = 'filter_b_and_w';
-            modeText.textContent = 'Depth Map';
+            window.setMode(true); // Default to Depth Map on reset (UI update handles classes)
         }
 
         async function runObjectDetection() {
@@ -717,6 +828,78 @@
             ctx.putImageData(imageData, 0, 0);
         }
 
+        // --- NEW: Firebase Preference Functions ---
+
+        // Function to save preferences to Firestore
+        async function saveUserPreferences() {
+            // --- FIX: Get all necessary functions from the module script ---
+            const { db, getUserId, appId, doc, setDoc } = window.getFirebaseServices();
+            const userId = getUserId();
+            
+            if (!db || !userId) {
+                // console.log('[SYS] Cannot save preferences: Firebase not ready or user not logged in.');
+                return;
+            }
+
+            const prefs = {
+                sensitivity: edgeSensitivity,
+                detectionMode: currentDetectionMode,
+                // Save display mode
+                displayMap: showProcessedMap
+            };
+            
+            try {
+                // --- FIX: 'doc' and 'setDoc' are now correctly referenced ---
+                const prefsDocRef = doc(db, 'artifacts', appId, 'users', userId, 'userPreferences', 'settings');
+                await setDoc(prefsDocRef, prefs, { merge: true });
+                // console.log('[SYS] User preferences saved to Firestore.');
+            } catch (error) {
+                console.error('[ERR] Failed to save preferences:', error);
+            }
+        }
+
+        // Function to load and sync preferences from Firestore
+        window.loadAndSyncPreferences = function(userId, db, appId) {
+            // --- FIX: Get 'doc' and 'onSnapshot' from the module script ---
+            const { doc, onSnapshot } = window.getFirebaseServices();
+
+            if (!db || !userId || !doc || !onSnapshot) {
+                console.error('[ERR] Firebase services not ready for preference loading.');
+                return;
+            }
+            
+            // --- FIX: 'doc' and 'onSnapshot' are now correctly referenced ---
+            const prefsDocRef = doc(db, 'artifacts', appId, 'users', userId, 'userPreferences', 'settings');
+            
+            onSnapshot(prefsDocRef, (docSnap) => {
+                if (docSnap.exists()) {
+                    const prefs = docSnap.data();
+                    console.log('[SYS] User preferences loaded from Firestore.');
+
+                    if (prefs.sensitivity !== undefined) {
+                        edgeSensitivity = parseFloat(prefs.sensitivity);
+                        sensitivityInput.value = edgeSensitivity;
+                        sensitivityValueSpan.textContent = edgeSensitivity.toFixed(1) + 'x';
+                    }
+                    if (prefs.detectionMode) {
+                        setDetectionMode(prefs.detectionMode);
+                    }
+                    if (prefs.displayMap !== undefined) {
+                        // Use the new setMode function to update the UI correctly
+                        window.setMode(prefs.displayMap);
+                    }
+                } else {
+                    console.log('[SYS] No user preferences found. Using default settings.');
+                    // Ensure defaults are applied to UI if nothing is found
+                    window.setMode(showProcessedMap); // Apply initial JS value (true)
+                    updateAIDetectionButton(currentDetectionMode); // Apply initial JS value (V1)
+                }
+            }, (error) => {
+                console.error('[ERR] Failed to load preferences:', error);
+            });
+        }
+
+
         // --- Detection Drawing Functions ---
 
         function drawRigSkeleton(x, y, width, height) {
@@ -823,8 +1006,10 @@
             loadDetectionModel();
             updateSensitivity(sensitivityInput.value);
             window.addEventListener('beforeunload', stopCamera);
-            // Initialize mode button visually
-            modeToggle.classList.toggle('active', showProcessedMap);
+            
+            // Set initial state for the new mode buttons (which will be overwritten by Firebase if available)
+            window.setMode(showProcessedMap);
+            updateAIDetectionButton(currentDetectionMode);
         });
 
     </script>

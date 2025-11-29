@@ -3,53 +3,45 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dash.Track v3.1 - Model Selector</title>
+    <title>Dash.Track v4.0 - Minimal Console</title>
     <!-- Load TensorFlow.js and COCO-SSD for Object Detection -->
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
     <!-- Load Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Load Google Material Symbols (Filled) -->
+    <!-- Load Google Material Symbols (Filled, for high-contrast) -->
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     
     <style>
-        /* Custom styles for deep futuristic aesthetic */
+        /* Modern Dark Theme Aesthetic */
         body {
-            background-color: #0c0d11; /* Very dark background */
+            background-color: #0d1117; /* GitHub Dark Mode / VS Code Dark */
         }
         .ui-card {
-            background-color: #1a1b24; /* Darker card background */
-            border: 1px solid #313340;
-            transition: all 0.3s ease-in-out;
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
+            background-color: #161b22; /* Darker Card background */
+            border: 1px solid #30363d;
+            border-radius: 0.75rem;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
         }
+        /* Primary Accent Color: Cyan/Teal */
+        .accent-primary { color: #2dd4bf; } 
+
         .camera-container {
             position: relative;
             width: 100%;
-            max-width: 800px;
-            margin: auto;
-            border-radius: 1.5rem;
+            height: 100%;
+            border-radius: 1rem;
             overflow: hidden;
-            /* Aggressive futuristic glow */
-            box-shadow: 0 0 50px rgba(100, 21, 255, 0.6), 0 0 15px rgba(126, 34, 206, 0.9);
-            border: 3px solid #6366f1;
+            box-shadow: 0 0 20px rgba(45, 212, 191, 0.3); /* Soft cyan glow */
+            border: 2px solid #2dd4bf;
         }
-        /* Fullscreen handling */
+        
+        /* Fullscreen handling for the container when the document is fullscreen */
         .camera-container:fullscreen {
-            max-width: 100vw;
-            max-height: 100vh;
-            width: 100vw;
-            height: 100vh;
-            border-radius: 0;
-            margin: 0;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            background-color: #000;
-            box-shadow: none;
-            border: none;
+            /* This section is now unused because fullscreen targets the document, 
+               but we keep video/canvas styling for clean display. */
         }
-
+        
         #webcamVideo { display: none; }
         #outputCanvas {
             display: block;
@@ -58,72 +50,52 @@
             background-color: #000;
         }
         
-        /* Button Styling: Highly stylized 'Activate' state */
-        .btn-activate {
-            background: linear-gradient(90deg, #6366f1 0%, #a855f7 100%);
-            color: white;
-            box-shadow: 0 4px 15px rgba(139, 92, 246, 0.5);
-            font-size: 1.25rem; /* Large text */
+        /* Primary Button Style (Teal/Cyan) */
+        .btn-primary {
+            background-color: #2dd4bf;
+            color: #0d1117;
+            font-weight: 700;
+            transition: all 0.2s;
         }
-        .btn-activate:hover {
-            background: linear-gradient(90deg, #4f46e5 0%, #9333ea 100%);
-            transform: translateY(-2px);
+        .btn-primary:hover:not(:disabled) {
+            background-color: #14b8a6;
+            transform: translateY(-1px);
         }
-        .btn-secondary {
-            background-color: #3f3f46; /* Zinc-600 for inactive/utility */
-            color: #d1d5db; /* Gray-300 */
-            transition: background-color 0.2s, box-shadow 0.2s;
-        }
-        .btn-core-toggle {
-            background-color: #262731; /* Darker background for toggles */
-            border: 1px solid #475569;
-        }
-        .btn-core-toggle.active {
-            background-color: #16a34a; /* Green-600 for active state */
-            color: #f0fdf4;
-            box-shadow: 0 0 10px rgba(22, 163, 74, 0.7);
-            border-color: #16a34a;
+        .btn-primary:active:not(:disabled) {
+            transform: scale(0.98);
         }
         
-        /* Slider thumb/track */
-        #sensitivity, #noiseLevel {
+        /* Toggle Button Style */
+        .btn-toggle {
+            background-color: #1a1b24;
+            border: 1px solid #30363d;
+            color: #cbd5e1; /* Increased contrast for inactive text */
+        }
+        .btn-toggle.active {
+            background-color: #2dd4bf; /* Cyan-400 */
+            color: #0d1117; 
+            border-color: #2dd4bf;
+            box-shadow: 0 0 10px rgba(45, 212, 191, 0.5);
+        }
+
+        /* Slider Thumb/Track */
+        .range-slider {
             -webkit-appearance: none;
             appearance: none;
-            height: 8px;
-            background: #313340;
-            border-radius: 4px;
+            height: 6px;
+            background: #30363d;
+            border-radius: 3px;
             cursor: pointer;
         }
-        #sensitivity::-webkit-slider-thumb, #noiseLevel::-webkit-slider-thumb {
+        .range-slider::-webkit-slider-thumb {
             -webkit-appearance: none;
             appearance: none;
-            width: 20px;
-            height: 20px;
-            background: #eab308; /* Amber for controls */
+            width: 16px;
+            height: 16px;
+            background: #2dd4bf; 
             border-radius: 50%;
-            border: 4px solid #1a1b24;
-            box-shadow: 0 0 10px rgba(234, 179, 8, 0.8);
-        }
-        
-        /* Status Box Glow */
-        .status-box {
-            border-left-width: 5px;
-            border-radius: 0.5rem;
-            animation: pulse-glow 2s infinite ease-in-out;
-            border-color: #ef4444; /* Default to Red-500 */
-        }
-        .status-box.ready {
-            border-color: #22c55e; /* Green-500 */
-        }
-        .status-box.loading {
-            border-color: #f59e0b; /* Amber-500 */
-        }
-        .status-box.active {
-            border-color: #6366f1; /* Indigo-500 */
-        }
-        @keyframes pulse-glow {
-            0%, 100% { box-shadow: 0 0 5px rgba(0, 0, 0, 0); }
-            50% { box-shadow: 0 0 15px rgba(99, 102, 241, 0.5); }
+            border: 3px solid #0d1117;
+            box-shadow: 0 0 5px rgba(45, 212, 191, 0.7);
         }
     </style>
     <script>
@@ -133,6 +105,9 @@
                     fontFamily: {
                         sans: ['Inter', 'sans-serif'],
                     },
+                    colors: {
+                        'primary-cyan': '#2dd4bf',
+                    }
                 }
             }
         }
@@ -140,130 +115,189 @@
 </head>
 <body class="text-white min-h-screen p-4 sm:p-8 font-sans">
 
-    <!-- Warning Modal -->
-    <div id="warningModal" class="fixed inset-0 z-50 flex items-center justify-center bg-gray-900 bg-opacity-95 backdrop-blur-md">
-        <div class="ui-card p-8 rounded-2xl shadow-2xl max-w-lg w-full border-t-4 border-yellow-500 transition-all hover:shadow-yellow-500/30">
-            <h2 class="text-3xl font-extrabold text-yellow-400 mb-4 flex items-center">
-                <span class="material-icons text-4xl mr-3">security</span>
-                PROPRIETARY DATA NOTICE
+    <!-- Warning Modal (Cleaner Look) -->
+    <div id="warningModal" class="fixed inset-0 z-50 flex items-center justify-center bg-gray-900 bg-opacity-95 backdrop-blur-sm">
+        <div class="ui-card p-8 rounded-xl max-w-lg w-full border-t-4 border-primary-cyan transition-all">
+            <h2 class="text-3xl font-extrabold accent-primary mb-4 flex items-center">
+                <span class="material-icons text-4xl mr-3">verified_user</span>
+                SYSTEM PROTOCOL AGREEMENT
             </h2>
-            <p class="text-gray-300 leading-relaxed mb-6 text-sm">
-                This is a GameCo. Experiment. All AI processing (TensorFlow.js) runs locally in your browser. **No video data is transmitted externally.** The Protection Systems (Noise, Light) are experimental features intended for disruptive research.
+            <p class="text-gray-400 leading-relaxed mb-6 text-sm">
+                This application is a local GameCo. Experiment. All AI processing (TensorFlow.js) runs entirely in your browser. **No video data is transmitted externally.** These systems are experimental and intended for disruptive research.
             </p>
-            <button onclick="document.getElementById('warningModal').classList.add('hidden')" class="w-full py-3 bg-yellow-600 hover:bg-yellow-500 transition duration-300 text-gray-900 font-bold rounded-xl shadow-lg hover:shadow-yellow-500/50">
-                INITIATE PROTOCOL
+            <button onclick="document.getElementById('warningModal').classList.add('hidden')" class="w-full py-3 btn-primary rounded-lg shadow-lg">
+                ACKNOWLEDGE & START
             </button>
         </div>
     </div>
 
-    <div class="max-w-5xl mx-auto">
-        <!-- New Branding -->
-        <h1 class="text-5xl font-extrabold mb-1 text-center text-transparent bg-clip-text bg-gradient-to-r from-indigo-300 to-purple-400 tracking-widest drop-shadow-lg">
-            DASH.<span class="text-yellow-400">TRACK</span>
-        </h1>
-        <p class="text-center text-gray-500 text-xs font-mono uppercase mb-8">
-            GameCo. LLC. | SYSTEM V3.1
-        </p>
-
-        <!-- Status Box: Modernized -->
-        <div id="statusMessage" class="text-center p-3 mb-6 status-box bg-gray-800 text-gray-300 font-medium loading">
-            [SYS] Initializing Machine Learning Module...
-        </div>
-
-        <!-- Camera Container -->
-        <div class="camera-container mb-6">
-            <video id="webcamVideo" autoplay playsinline muted></video>
-            <canvas id="outputCanvas" width="800" height="450"></canvas>
+    <!-- MAIN DASHBOARD LAYOUT -->
+    <div class="max-w-7xl mx-auto">
+        <!-- HEADER / BRANDING -->
+        <header class="mb-8 border-b border-gray-700 pb-4">
+            <h1 class="text-4xl font-extrabold text-center text-transparent bg-clip-text bg-gradient-to-r from-primary-cyan to-blue-400 tracking-wider">
+                DASH.<span class="text-primary-cyan">TRACK</span> V4.0
+            </h1>
+            <p class="text-center text-gray-500 text-xs font-mono uppercase mt-1">
+                Real-Time Detection Console
+            </p>
+        </header>
+        
+        <!-- TWO-COLUMN CONTENT GRID -->
+        <div class="grid lg:grid-cols-3 gap-8">
             
-            <!-- Strobe Effect Overlay (starts invisible) -->
-            <div id="strobeOverlay" class="absolute inset-0 bg-white opacity-0 pointer-events-none transition-opacity duration-75"></div>
-        </div>
-
-        <!-- MAIN POWER CONTROLS (BIG FUNCTION) -->
-        <div class="grid grid-cols-2 gap-4 mb-6">
-            <button id="startButton" onclick="startCamera()" class="py-5 btn-activate text-white font-extrabold rounded-xl shadow-lg transition duration-300 transform hover:scale-[1.01] active:scale-98 flex items-center justify-center text-xl disabled:opacity-50" disabled>
-                <span class="material-icons text-3xl mr-3">power_settings_new</span>
-                POWER ON SYSTEM
-            </button>
-            <button id="stopButton" onclick="stopCamera()" class="py-5 bg-gray-800 hover:bg-red-800 transition duration-300 text-red-400 font-extrabold rounded-xl shadow-lg transform hover:scale-[1.01] active:scale-98 flex items-center justify-center text-xl disabled:opacity-50 disabled:hover:bg-gray-800" disabled>
-                <span class="material-icons text-3xl mr-3">emergency_exit</span>
-                POWER DOWN
-            </button>
-        </div>
-
-        <!-- CORE TOGGLES (Simplified, Big Buttons) -->
-        <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
-            <!-- 1. Display Mode Toggle -->
-            <button id="modeToggle" onclick="toggleMode()" class="p-4 btn-core-toggle rounded-xl shadow-md flex flex-col items-center justify-center text-center text-sm transform active:scale-98 disabled:opacity-50" disabled>
-                <span class="material-icons text-4xl mb-1 text-indigo-400" id="modeIcon">visibility</span>
-                <span id="modeText" class="font-semibold text-gray-300">Depth Map</span>
-            </button>
-            
-            <!-- 2. AI Model Selector -->
-            <button id="aiDetectionToggle" onclick="toggleAIDetectionMode()" class="p-4 btn-core-toggle rounded-xl shadow-md flex flex-col items-center justify-center text-center text-sm transform active:scale-98 disabled:opacity-50" disabled>
-                <span class="material-icons text-4xl mb-1 text-yellow-400" id="aiIcon">smart_toy</span>
-                <span id="aiText" class="font-semibold text-yellow-400">AI Detection: V1</span>
-            </button>
-
-            <!-- 3. Noise Protection Toggle -->
-            <button id="noiseToggle" onclick="toggleNoiseProtection()" class="p-4 btn-core-toggle rounded-xl shadow-md flex flex-col items-center justify-center text-center text-sm transform active:scale-98 disabled:opacity-50">
-                <span class="material-icons text-4xl mb-1 text-purple-400">surround_sound</span>
-                <span class="font-semibold text-gray-300">Noise-Injection</span>
-            </button>
-            
-            <!-- 4. Light Protection Toggle -->
-            <button id="lightToggle" onclick="toggleLightProtection()" class="p-4 btn-core-toggle rounded-xl shadow-md flex flex-col items-center justify-center text-center text-sm transform active:scale-98 disabled:opacity-50">
-                <span class="material-icons text-4xl mb-1 text-red-400">flare</span>
-                <span class="font-semibold text-gray-300">Light Disruption</span>
-            </button>
-        </div>
-
-        <!-- FINE-TUNING SLIDERS -->
-        <div class="ui-card p-5 rounded-xl mb-6">
-            <h2 class="text-xl font-bold text-gray-300 mb-3 flex items-center border-b border-gray-700/50 pb-2">
-                <span class="material-icons mr-2 text-xl text-yellow-400">settings</span> Fine-Tuning Console
-            </h2>
-            <div class="space-y-4">
-                <!-- Sensitivity Slider -->
-                <div>
-                    <label for="sensitivity" class="block text-sm font-semibold text-gray-400 flex justify-between">
-                        Depth Sensitivity Multiplier
-                        <span id="sensitivityValue" class="font-mono text-yellow-400">1.5x</span>
-                    </label>
-                    <input type="range" id="sensitivity" min="0.5" max="4.0" step="0.1" value="1.5" oninput="updateSensitivity(this.value)" class="w-full mt-1">
+            <!-- LEFT COLUMN: VIDEO FEED -->
+            <div class="lg:col-span-2 space-y-4">
+                
+                <!-- Camera Container -->
+                <div class="camera-container aspect-video">
+                    <video id="webcamVideo" autoplay playsinline muted></video>
+                    <canvas id="outputCanvas" width="800" height="450"></canvas>
                 </div>
 
-                <!-- Noise Level Slider -->
-                <div>
-                    <label for="noiseLevel" class="block text-sm font-semibold text-gray-400 flex justify-between">
-                        Noise-Injection Strength (0-100%)
-                        <span id="noiseLevelValue" class="font-mono text-yellow-400">10%</span>
-                    </label>
-                    <input type="range" id="noiseLevel" min="0" max="100" step="1" value="10" oninput="updateNoiseLevel(this.value)" class="w-full mt-1">
+                <!-- MAIN POWER CONTROLS -->
+                <div class="grid grid-cols-2 gap-4">
+                    <button id="startButton" onclick="startCamera()" class="py-4 btn-primary rounded-lg text-lg flex items-center justify-center disabled:opacity-50" disabled>
+                        <span class="material-icons text-3xl mr-2">camera_indoor</span>
+                        POWER ON
+                    </button>
+                    <button id="stopButton" onclick="stopCamera()" class="py-4 bg-gray-700 hover:bg-red-600 text-red-300 font-semibold rounded-lg text-lg flex items-center justify-center disabled:opacity-50 disabled:hover:bg-gray-700" disabled>
+                        <span class="material-icons text-3xl mr-2">power_off</span>
+                        SHUT DOWN
+                    </button>
+                </div>
+            </div>
+
+            <!-- RIGHT COLUMN: CONTROL PANEL -->
+            <div class="lg:col-span-1 space-y-6">
+
+                <!-- 1. CORE TOGGLES CARD -->
+                <div class="ui-card p-4 space-y-4">
+                    <h2 class="text-xl font-bold border-b border-gray-700 pb-2 flex items-center accent-primary">
+                        <span class="material-icons mr-2 text-xl">tune</span> System Core Toggles
+                    </h2>
+                    
+                    <div class="grid grid-cols-2 gap-3">
+                        <!-- Mode Toggle -->
+                        <button id="modeToggle" onclick="toggleMode()" class="p-3 btn-toggle active rounded-lg text-sm flex flex-col items-center disabled:opacity-50" disabled>
+                            <span class="material-icons text-3xl mb-1" id="modeIcon">filter_b_and_w</span>
+                            <span id="modeText" class="font-semibold">Depth Map</span>
+                        </button>
+                        
+                        <!-- AI Model Selector -->
+                        <button id="aiDetectionToggle" onclick="toggleAIDetectionMode()" class="p-3 btn-toggle active rounded-lg text-sm flex flex-col items-center disabled:opacity-50" disabled>
+                            <span class="material-icons text-3xl mb-1 text-yellow-400" id="aiIcon">model_training</span>
+                            <span id="aiText" class="font-semibold"><span class="font-semibold text-yellow-400">AI Detection: V1</span></span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 2. FINE-TUNING SLIDERS CARD -->
+                <div class="ui-card p-4 space-y-4">
+                    <h2 class="text-xl font-bold border-b border-gray-700 pb-2 flex items-center accent-primary">
+                        <span class="material-icons mr-2 text-xl">straighten</span> Fine-Tuning Console
+                    </h2>
+                    <!-- Sensitivity Slider -->
+                    <div>
+                        <label for="sensitivity" class="block text-sm font-semibold text-gray-400 flex justify-between">
+                            Edge Sensitivity Multiplier
+                            <span id="sensitivityValue" class="font-mono text-primary-cyan">1.5x</span>
+                        </label>
+                        <input type="range" id="sensitivity" min="0.5" max="4.0" step="0.1" value="1.5" oninput="updateSensitivity(this.value)" class="w-full mt-2 range-slider">
+                    </div>
+                </div>
+
+                <!-- 3. UTILITY CONTROLS CARD -->
+                <div class="ui-card p-4 space-y-4">
+                    <h2 class="text-xl font-bold border-b border-gray-700 pb-2 flex items-center accent-primary">
+                        <span class="material-icons mr-2 text-xl">storage</span> Data Management
+                    </h2>
+                    <div class="grid grid-cols-2 gap-3">
+                         <!-- RTD Recording Button -->
+                        <button id="recordButton" onclick="toggleRecording()" class="py-2 bg-gray-700 hover:bg-red-700 transition duration-300 text-white font-semibold rounded-lg shadow-inner flex items-center justify-center text-sm disabled:opacity-50" disabled>
+                            <span class="material-icons text-xl mr-1" id="recordIcon">videocam_off</span>
+                            <span id="recordText">Start RTD Record</span>
+                        </button>
+                        <!-- Fullscreen Button -->
+                        <button id="fullscreenButton" onclick="requestFullscreen()" class="py-2 bg-gray-700 hover:bg-gray-600 transition duration-300 text-white font-semibold rounded-lg shadow-inner flex items-center justify-center text-sm disabled:opacity-50" disabled>
+                            <span class="material-icons text-xl mr-1">fullscreen</span>
+                            Maximize View
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
-
-        <!-- UTILITY CONTROLS -->
-        <div class="grid grid-cols-2 gap-4">
-             <!-- RTD Recording Button -->
-            <button id="recordButton" onclick="toggleRecording()" class="py-3 bg-gray-700 hover:bg-red-700 transition duration-300 text-white font-semibold rounded-lg shadow-inner transform active:scale-98 flex items-center justify-center text-sm disabled:opacity-50" disabled>
-                <span class="material-icons text-xl mr-2" id="recordIcon">radio_button_unchecked</span>
-                <span id="recordText">Start RTD Recording</span>
-            </button>
-            <!-- Fullscreen Button -->
-            <button id="fullscreenButton" onclick="requestFullscreen()" class="py-3 bg-gray-700 hover:bg-gray-600 transition duration-300 text-white font-semibold rounded-lg shadow-inner flex items-center justify-center text-sm disabled:opacity-50" disabled>
-                <span class="material-icons text-xl mr-2">fullscreen</span>
-                Maximize Canvas
-            </button>
-        </div>
     </div>
+    
+    <!-- Firebase Initialization Script -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, setPersistence, browserSessionPersistence } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
+        // --- Global Firebase Configuration (MANDATORY) ---
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+        
+        let app;
+        let auth;
+        let db;
+        let userId = null;
+
+        async function initializeFirebase() {
+            if (Object.keys(firebaseConfig).length === 0) {
+                console.error("Firebase config is empty. Cannot initialize.");
+                return;
+            }
+
+            try {
+                app = initializeApp(firebaseConfig);
+                auth = getAuth(app);
+                db = getFirestore(app);
+                setLogLevel('error'); 
+
+                await setPersistence(auth, browserSessionPersistence);
+
+                await new Promise((resolve) => {
+                    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+                        unsubscribe(); 
+                        if (user) {
+                            userId = user.uid;
+                            resolve();
+                        } else {
+                            try {
+                                if (initialAuthToken) {
+                                    const userCredential = await signInWithCustomToken(auth, initialAuthToken);
+                                    userId = userCredential.user.uid;
+                                } else {
+                                    const userCredential = await signInAnonymously(auth);
+                                    userId = userCredential.user.uid;
+                                }
+                                resolve();
+                            } catch (error) {
+                                console.error("Firebase Sign-In Error:", error);
+                                // Continue initialization even if sign-in fails
+                                resolve();
+                            }
+                        }
+                    });
+                });
+            } catch (error) {
+                console.error("Firebase Initialization Failed:", error);
+            }
+        }
+        
+        // Run Firebase initialization
+        initializeFirebase();
+    </script>
+    
+    <!-- Application Logic Script -->
     <script>
+        // --- DOM Elements ---
         const video = document.getElementById('webcamVideo');
         const canvas = document.getElementById('outputCanvas');
         const ctx = canvas.getContext('2d');
-        const statusMessage = document.getElementById('statusMessage');
         const startButton = document.getElementById('startButton');
         const stopButton = document.getElementById('stopButton');
         const modeToggle = document.getElementById('modeToggle');
@@ -272,110 +306,92 @@
         const fullscreenButton = document.getElementById('fullscreenButton');
         const sensitivityInput = document.getElementById('sensitivity');
         const sensitivityValueSpan = document.getElementById('sensitivityValue');
-
-        // Feature Elements
-        const noiseToggle = document.getElementById('noiseToggle');
-        const noiseLevelInput = document.getElementById('noiseLevel');
-        const noiseLevelValueSpan = document.getElementById('noiseLevelValue');
-        const lightToggle = document.getElementById('lightToggle');
         const recordButton = document.getElementById('recordButton');
         const recordIcon = document.getElementById('recordIcon');
         const recordText = document.getElementById('recordText');
-        const strobeOverlay = document.getElementById('strobeOverlay');
-        
-        // AI Detection Selector Elements
         const aiDetectionToggle = document.getElementById('aiDetectionToggle');
         const aiIcon = document.getElementById('aiIcon');
         const aiText = document.getElementById('aiText');
 
-        // State Variables
+        // --- State Variables ---
         let animationFrameId;
         let stream;
         let showProcessedMap = true;
         let edgeSensitivity = 1.5; 
-        let isNoiseProtectionActive = false;
-        let noiseLevel = 10; // 0-100 range
-        let isLightProtectionActive = false;
         let detectionModel = null;
         let detections = [];
-        
-        // New State for Model Selection
         let currentDetectionMode = 'V1'; // 'V1', 'V2', 'OFF'
         let detectionInterval = 500; // Default V1
         let detectionThreshold = 0.6; // Default V1
         let lastDetectionTime = 0;
-
-        // Sobel Kernels
+        
+        // Recording State
+        let isRecording = false;
+        let mediaRecorder;
+        let recordedChunks = [];
+        
+        // --- Kernels ---
         const sobelX = [ [-1, 0, 1], [-2, 0, 2], [-1, 0, 1] ];
         const sobelY = [ [-1, -2, -1], [0, 0, 0], [1, 2, 1] ];
-        // Gaussian Blur Kernel
         const gaussianKernel = [ [1, 2, 1], [2, 4, 2], [1, 2, 1] ];
         const kernelSum = 16;
         
-        // --- Helper Functions ---
+        // --- Model and Mode Functions ---
 
         async function loadDetectionModel() {
-            statusMessage.textContent = '[SYS] Loading ML Module...';
-            statusMessage.className = 'text-center p-3 mb-6 status-box bg-gray-800 text-yellow-300 font-medium loading';
+            console.log('[SYS] Loading ML Module...');
             try {
                 await tf.ready(); 
                 detectionModel = await cocoSsd.load();
-                // Set initial mode parameters
+                
                 setDetectionMode('V1'); 
 
-                statusMessage.textContent = '[SYS] Module online. Ready for Power On.';
-                statusMessage.className = 'text-center p-3 mb-6 status-box bg-gray-800 text-green-300 font-medium ready';
+                console.log('[SYS] Module online. Ready for Power On.');
                 startButton.disabled = false;
             } catch (error) {
-                console.error("Error loading model:", error);
-                statusMessage.textContent = '[ERR] Model load failed. Check console.';
-                statusMessage.className = 'text-center p-3 mb-6 status-box bg-gray-800 text-red-300 font-medium';
+                console.error("[ERR] Model load failed. Check console.", error);
             }
         }
         
-        /**
-         * Sets the detection model/simulation parameters based on mode.
-         */
         function setDetectionMode(mode) {
             currentDetectionMode = mode;
-            aiDetectionToggle.classList.remove('active', 'bg-red-800', 'hover:bg-red-700');
+            aiDetectionToggle.classList.remove('active');
             aiIcon.classList.remove('text-red-400', 'text-green-400', 'text-yellow-400');
+            
+            let iconText = '';
+            let color = '';
+            let isActive = true;
 
             switch (mode) {
                 case 'V1':
-                    // Dash.Track Default: Fast, general purpose
-                    detectionInterval = 500; // 2 FPS
+                    detectionInterval = 500; 
                     detectionThreshold = 0.6;
-                    aiText.innerHTML = 'AI Detection: <span class="text-yellow-400 font-bold">V1 (Default)</span>';
-                    aiIcon.classList.add('text-yellow-400');
-                    aiDetectionToggle.classList.add('active'); // V1 is considered "active"
-                    statusMessage.textContent = '[SYS] AI Detection set to V1 (Standard).';
+                    iconText = 'AI Detection: V1';
+                    color = 'text-yellow-400';
                     break;
                 case 'V2':
-                    // Pico-Pro Advanced: Higher confidence, slightly slower simulation
-                    detectionInterval = 750; // ~1.3 FPS (Simulated slower/deeper analysis)
-                    detectionThreshold = 0.8; 
-                    aiText.innerHTML = 'AI Detection: <span class="text-green-400 font-bold">V2 (Pico-Pro)</span>';
-                    aiIcon.classList.add('text-green-400');
-                    aiDetectionToggle.classList.add('active');
-                    statusMessage.textContent = '[SYS] AI Detection set to V2 (Advanced). Pose Rig Enabled.';
+                    detectionInterval = 750; 
+                    detectionThreshold = 0.8;
+                    iconText = 'AI Detection: V2 (Pico-Pro)'; 
+                    color = 'text-primary-cyan'; // Changed to primary-cyan/teal for V2
                     break;
                 case 'OFF':
-                    // Disabled
-                    detectionInterval = Infinity; // Effectively stops updates
+                    detectionInterval = Infinity; 
                     detectionThreshold = 1.0;
-                    detections = []; // Clear current detections
-                    aiText.innerHTML = 'AI Detection: <span class="text-red-400 font-bold">OFF</span>';
-                    aiIcon.classList.add('text-red-400');
-                    aiDetectionToggle.classList.remove('active');
-                    aiDetectionToggle.classList.add('bg-red-800', 'hover:bg-red-700');
-                    statusMessage.textContent = '[SYS] AI Detection Disabled.';
+                    detections = []; 
+                    iconText = 'AI Detection: OFF';
+                    color = 'text-red-400';
+                    isActive = false;
                     break;
             }
-            statusMessage.className = 'text-center p-3 mb-6 status-box bg-gray-800 text-indigo-300 font-medium active';
+            
+            aiText.innerHTML = `<span class="font-semibold ${color}">${iconText}</span>`;
+            aiIcon.classList.add(color);
+            aiDetectionToggle.classList.toggle('active', isActive);
+            console.log(`[SYS] AI Detection set to ${mode}.`);
         }
 
-        function toggleAIDetectionMode() {
+        window.toggleAIDetectionMode = function() {
             switch (currentDetectionMode) {
                 case 'V1':
                     setDetectionMode('V2');
@@ -391,241 +407,39 @@
         }
 
 
-        function requestFullscreen() {
-            const container = document.querySelector('.camera-container');
-            if (container.requestFullscreen) {
-                container.requestFullscreen();
-            } else if (container.webkitRequestFullscreen) {
-                container.webkitRequestFullscreen();
+        // --- Controls and Interaction Functions ---
+
+        window.requestFullscreen = function() {
+            // --- USER REQUEST: Target the entire document for fullscreen ---
+            const docEl = document.documentElement;
+            if (docEl.requestFullscreen) {
+                docEl.requestFullscreen();
+            } else if (docEl.webkitRequestFullscreen) {
+                docEl.webkitRequestFullscreen();
+            } else if (docEl.msRequestFullscreen) {
+                docEl.msRequestFullscreen();
             }
+            // --- END USER REQUEST ---
         }
 
         function handleFullscreenChange() {
             const isFullscreen = document.fullscreenElement || document.webkitFullscreenElement;
-            if (stream) {
-                if (isFullscreen) {
-                    statusMessage.textContent = '[SYS] Fullscreen engaged. ESC to disengage.';
-                } else {
-                    statusMessage.textContent = `[SYS] Dash.Track Active at ${canvas.width}x${canvas.height}.`;
-                }
-                statusMessage.className = 'text-center p-3 mb-6 status-box bg-gray-800 text-indigo-300 font-medium active';
-            }
+            console.log(`[SYS] Fullscreen Toggled: ${isFullscreen ? 'Engaged' : 'Disengaged'}`);
         }
         document.addEventListener('fullscreenchange', handleFullscreenChange);
         document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
         
-        async function runObjectDetection() {
-            if (currentDetectionMode === 'OFF' || !detectionModel) {
-                detections = [];
-                return;
-            }
-
-            // Skip detection if noise protection is active (simulates disruption)
-            if (isNoiseProtectionActive) {
-                detections = [];
-                return;
-            }
-            
-            const now = performance.now();
-            if (now - lastDetectionTime < detectionInterval) {
-                return;
-            }
-            lastDetectionTime = now;
-            
-            try {
-                // Run detection with the current video frame
-                const rawDetections = await detectionModel.detect(video);
-
-                // Filter detections based on the current threshold
-                detections = rawDetections.filter(p => p.score >= detectionThreshold);
-                
-            } catch (error) {
-                console.error("Detection error:", error);
-                detections = [];
-            }
-        }
-        
-        function updateSensitivity(value) {
+        window.updateSensitivity = function(value) {
             edgeSensitivity = parseFloat(value);
             sensitivityValueSpan.textContent = edgeSensitivity.toFixed(1) + 'x';
         }
 
-        function updateNoiseLevel(value) {
-            noiseLevel = parseInt(value, 10);
-            noiseLevelValueSpan.textContent = noiseLevel + '%';
-        }
-
-        function applyGaussianBlur(grayData, width, height) {
-            const blurredData = new Array(width * height).fill(0);
-            for (let y = 1; y < height - 1; y++) {
-                for (let x = 1; x < width - 1; x++) {
-                    let sum = 0;
-                    for (let ky = -1; ky <= 1; ky++) {
-                        for (let kx = -1; kx <= 1; kx++) {
-                            const pixelIndex = (y + ky) * width + (x + kx);
-                            const kernelValue = gaussianKernel[ky + 1][kx + 1];
-                            sum += grayData[pixelIndex] * kernelValue;
-                        }
-                    }
-                    blurredData[y * width + x] = sum / kernelSum;
-                }
-            }
-            // Handle border pixels
-            for (let i = 0; i < width; i++) {
-                blurredData[i] = grayData[i]; 
-                blurredData[(height - 1) * width + i] = grayData[(height - 1) * width + i];
-            }
-            for (let j = 0; j < height; j++) {
-                blurredData[j * width] = grayData[j * width]; 
-                blurredData[j * width + width - 1] = grayData[j * width + width - 1];
-            }
-            return blurredData;
-        }
-        
-        /**
-         * Simulates a 17-point pose estimation skeleton based on the bounding box.
-         * This is now a feature exclusively of the V2 (Pico-Pro) mode.
-         */
-        function drawRigSkeleton(x, y, width, height) {
-            if (currentDetectionMode !== 'V2') return;
-
-            // Use a specific color for the V2 Rig
-            ctx.strokeStyle = '#4ade80'; // Green for V2 skeleton lines
-            ctx.fillStyle = '#bbf7d0'; // Light green for joints
-            ctx.lineWidth = 3; // Thicker lines for V2
-            ctx.shadowBlur = 0; 
-
-            const jointRadius = Math.max(3, Math.min(7, height * 0.007)); // Responsive joint size
-
-            // 1. Define 17 Simulated Keypoints relative to the Bounding Box (BB)
-            const p = (relX, relY) => ({
-                x: x + width * relX,
-                y: y + height * relY
-            });
-
-            const points = {
-                // Head (Top 20% of BB)
-                nose: p(0.5, 0.05),
-                leftEye: p(0.45, 0.05),
-                rightEye: p(0.55, 0.05),
-                leftEar: p(0.35, 0.1),
-                rightEar: p(0.65, 0.1),
-                // Torso (20% - 60% of BB)
-                leftShoulder: p(0.3, 0.25),
-                rightShoulder: p(0.7, 0.25),
-                leftHip: p(0.4, 0.6),
-                rightHip: p(0.6, 0.6),
-                // Arms (25% - 75% of BB)
-                leftElbow: p(0.2, 0.45),
-                rightElbow: p(0.8, 0.45),
-                leftWrist: p(0.1, 0.7),
-                rightWrist: p(0.9, 0.7),
-                // Legs (60% - 95% of BB)
-                leftKnee: p(0.4, 0.8),
-                rightKnee: p(0.6, 0.8),
-                leftAnkle: p(0.4, 0.95),
-                rightAnkle: p(0.6, 0.95),
-            };
-
-            // 2. Define Connections (Bones)
-            const connections = [
-                // Head
-                [points.leftEye, points.nose],
-                [points.rightEye, points.nose],
-                [points.leftEar, points.leftShoulder],
-                [points.rightEar, points.rightShoulder],
-                // Torso
-                [points.leftShoulder, points.rightShoulder],
-                [points.leftShoulder, points.leftHip],
-                [points.rightShoulder, points.rightHip],
-                [points.leftHip, points.rightHip],
-                // Arms
-                [points.leftShoulder, points.leftElbow],
-                [points.leftElbow, points.leftWrist],
-                [points.rightShoulder, points.rightElbow],
-                [points.rightElbow, points.rightWrist],
-                // Legs
-                [points.leftHip, points.leftKnee],
-                [points.leftKnee, points.leftAnkle],
-                [points.rightHip, points.rightKnee],
-                [points.rightKnee, points.rightAnkle],
-            ];
-            
-            // 3. Draw Bones
-            ctx.beginPath();
-            connections.forEach(([p1, p2]) => {
-                ctx.moveTo(p1.x, p1.y);
-                ctx.lineTo(p2.x, p2.y);
-            });
-            ctx.stroke();
-
-            // 4. Draw Joints
-            Object.values(points).forEach(p => {
-                ctx.beginPath();
-                ctx.arc(p.x, p.y, jointRadius, 0, 2 * Math.PI);
-                ctx.fill();
-            });
-        }
-
-
-        function drawDetections() {
-            ctx.lineWidth = currentDetectionMode === 'V2' ? 4 : 2;
-            ctx.font = '16px Inter, sans-serif';
-            ctx.shadowBlur = currentDetectionMode === 'V2' ? 8 : 5;
-
-            detections.forEach(prediction => {
-                const [x, y, width, height] = prediction.bbox;
-                const score = (prediction.score * 100).toFixed(1);
-                const label = `${prediction.class} (${score}%)`;
-                
-                let boxColor;
-
-                if (prediction.class === 'person') {
-                    boxColor = currentDetectionMode === 'V2' ? '#4ade80' : '#34D399'; // Green/Teal
-                    
-                    // Draw Rig Skeleton only for 'person' in V2 mode
-                    if (currentDetectionMode === 'V2') {
-                        drawRigSkeleton(x, y, width, height);
-                    }
-
-                } else if (prediction.class === 'cell phone' || prediction.class === 'laptop') {
-                    boxColor = currentDetectionMode === 'V2' ? '#FDE047' : '#FBBF24'; // Brighter Amber
-                } else {
-                    boxColor = currentDetectionMode === 'V2' ? '#818CF8' : '#A78BFA'; // Violet/Indigo
-                }
-                
-                ctx.strokeStyle = boxColor; 
-                ctx.fillStyle = boxColor;
-                
-                // Draw Bounding Box
-                ctx.shadowColor = boxColor; 
-                ctx.strokeRect(x, y, width, height);
-
-                const textWidth = ctx.measureText(label).width;
-                const textHeight = 20; 
-                
-                // Draw semi-transparent background for label
-                ctx.save();
-                ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
-                ctx.fillRect(x, y, textWidth + 10, textHeight + 4);
-                ctx.restore();
-
-                // Draw Label Text
-                ctx.fillStyle = '#FFFFFF';
-                ctx.shadowBlur = 0;
-                ctx.fillText(label, x + 5, y + textHeight - 2);
-            });
-        }
-
-        // --- Feature Toggles ---
-
-        function toggleMode() {
+        window.toggleMode = function() {
             showProcessedMap = !showProcessedMap;
-            modeToggle.classList.toggle('active');
-            modeIcon.classList.toggle('text-indigo-400');
+            modeToggle.classList.toggle('active', showProcessedMap);
             
             if (showProcessedMap) {
-                modeIcon.textContent = 'visibility';
+                modeIcon.textContent = 'filter_b_and_w';
                 modeText.textContent = 'Depth Map';
             } else {
                 modeIcon.textContent = 'photo_camera'; 
@@ -633,46 +447,9 @@
             }
         }
         
-        function toggleNoiseProtection() {
-            isNoiseProtectionActive = !isNoiseProtectionActive;
-            noiseToggle.classList.toggle('active', isNoiseProtectionActive);
-            
-            if (isNoiseProtectionActive) {
-                noiseToggle.classList.remove('bg-gray-700');
-                noiseToggle.classList.add('bg-green-600');
-                statusMessage.textContent = `[WARN] Noise-Injection Active. Level: ${noiseLevel}%. AI Detection Disruption engaged.`;
-                statusMessage.className = 'text-center p-3 mb-6 status-box bg-gray-800 text-orange-300 font-medium active';
-            } else {
-                noiseToggle.classList.remove('bg-green-600');
-                noiseToggle.classList.add('bg-gray-700');
-                statusMessage.textContent = '[SYS] Noise-Injection Deactivated.';
-                statusMessage.className = 'text-center p-3 mb-6 status-box bg-gray-800 text-indigo-300 font-medium active';
-                detections = []; // Clear current detections
-            }
-        }
-
-        function toggleLightProtection() {
-            isLightProtectionActive = !isLightProtectionActive;
-            lightToggle.classList.toggle('active', isLightProtectionActive);
-
-            if (isLightProtectionActive) {
-                lightToggle.classList.remove('bg-gray-700');
-                lightToggle.classList.add('bg-green-600');
-                statusMessage.textContent = '[WARN] Light-Based Disruption Active. Video Stream Stability Compromised.';
-                statusMessage.className = 'text-center p-3 mb-6 status-box bg-gray-800 text-red-300 font-medium active';
-            } else {
-                lightToggle.classList.remove('bg-green-600');
-                lightToggle.classList.add('bg-gray-700');
-                // Ensure strobe overlay is fully hidden when off
-                strobeOverlay.style.opacity = '0';
-                statusMessage.textContent = '[SYS] Light-Based Disruption Deactivated.';
-                statusMessage.className = 'text-center p-3 mb-6 status-box bg-gray-800 text-indigo-300 font-medium active';
-            }
-        }
-        
         // --- RTD Recording ---
         
-        function toggleRecording() {
+        window.toggleRecording = function() {
             if (isRecording) {
                 stopRecording();
             } else {
@@ -681,13 +458,13 @@
         }
 
         function startRecording() {
-            if (!stream) return;
+            if (!stream || isRecording) return;
             
             isRecording = true;
             recordedChunks = [];
 
             // Capture the content of the CANVAS (the processed feed)
-            const canvasStream = canvas.captureStream(30); // 30 FPS
+            const canvasStream = canvas.captureStream(30); 
             mediaRecorder = new MediaRecorder(canvasStream, { mimeType: 'video/webm; codecs=vp8' });
 
             mediaRecorder.ondataavailable = (event) => {
@@ -707,17 +484,17 @@
                 a.click();
                 window.URL.revokeObjectURL(url);
                 
-                statusMessage.textContent = `[SYS] RTD Recording Saved and Downloaded.`;
+                console.log(`[SYS] RTD Recording Saved and Downloaded.`);
             };
 
             mediaRecorder.start();
 
             // UI Update
-            recordIcon.textContent = 'fiber_manual_record';
+            recordIcon.textContent = 'videocam';
             recordButton.classList.remove('bg-gray-700', 'hover:bg-red-700');
             recordButton.classList.add('bg-red-600', 'hover:bg-red-500', 'active');
-            recordText.textContent = 'Stop Recording';
-            statusMessage.textContent = '[SYS] RTD Recording started.';
+            recordText.textContent = 'Stop RTD Record';
+            console.log('[SYS] RTD Recording started.');
         }
 
         function stopRecording() {
@@ -727,20 +504,19 @@
             isRecording = false;
 
             // UI Update
-            recordIcon.textContent = 'radio_button_unchecked';
+            recordIcon.textContent = 'videocam_off';
             recordButton.classList.remove('bg-red-600', 'hover:bg-red-500', 'active');
             recordButton.classList.add('bg-gray-700', 'hover:bg-red-700');
-            recordText.textContent = 'Start RTD Recording';
-            statusMessage.textContent = '[SYS] RTD Recording finalized. Preparing download...';
+            recordText.textContent = 'Start RTD Record';
+            console.log('[SYS] RTD Recording finalizing. Preparing download...');
         }
         
         // --- Core Application Logic ---
 
-        function startCamera() {
+        window.startCamera = function() {
             if (stream) { stopCamera(); }
 
-            statusMessage.textContent = '[SYS] Requesting Stream Access...';
-            statusMessage.className = 'text-center p-3 mb-6 status-box bg-gray-800 text-yellow-300 font-medium loading';
+            console.log('[SYS] Requesting Stream Access...');
             startButton.disabled = true;
 
             navigator.mediaDevices.getUserMedia({ 
@@ -751,40 +527,40 @@
                     height: { ideal: 720 }
                 } 
             })
-                .then(mediaStream => {
-                    stream = mediaStream;
-                    video.srcObject = stream;
-                    video.onloadedmetadata = () => {
-                        canvas.width = video.videoWidth;
-                        canvas.height = video.videoHeight;
-                        video.play();
-                        statusMessage.textContent = `[SYS] Dash.Track Active. Resolution: ${canvas.width}x${canvas.height}.`;
-                        statusMessage.className = 'text-center p-3 mb-6 status-box bg-gray-800 text-indigo-300 font-medium active';
-                        stopButton.disabled = false;
-                        modeToggle.disabled = false;
-                        fullscreenButton.disabled = false;
-                        recordButton.disabled = false;
-                        aiDetectionToggle.disabled = false; 
-                        
-                        requestAnimationFrame(processFrame);
-                        runObjectDetection(); 
-                    };
-                })
-                .catch(err => {
-                    console.error("Error accessing camera:", err);
-                    statusMessage.textContent = `[ERR] Access Denied: (${err.name}). Check browser permissions.`;
-                    statusMessage.className = 'text-center p-3 mb-6 status-box bg-gray-800 text-red-300 font-medium';
-                    startButton.disabled = false;
-                });
+            .then(mediaStream => {
+                stream = mediaStream;
+                video.srcObject = stream;
+                video.onloadedmetadata = () => {
+                    // Set canvas drawing buffer to video resolution
+                    canvas.width = video.videoWidth;
+                    canvas.height = video.videoHeight;
+                    video.play();
+                    
+                    console.log(`[SYS] Dash.Track Active. Resolution: ${canvas.width}x${canvas.height}.`);
+                    stopButton.disabled = false;
+                    modeToggle.disabled = false;
+                    fullscreenButton.disabled = false;
+                    recordButton.disabled = false;
+                    aiDetectionToggle.disabled = false; 
+                    
+                    requestAnimationFrame(processFrame);
+                    // Initial detection run (non-blocking)
+                    runObjectDetection(); 
+                };
+            })
+            .catch(err => {
+                console.error("[ERR] Access Denied: Check browser permissions.", err);
+                startButton.disabled = false;
+            });
         }
 
-        function stopCamera() {
+        window.stopCamera = function() {
             if (animationFrameId) {
                 cancelAnimationFrame(animationFrameId);
                 animationFrameId = null;
             }
             if (isRecording) {
-                stopRecording(); // Stop and save the recording
+                stopRecording();
             }
             if (stream) {
                 stream.getTracks().forEach(track => track.stop());
@@ -792,8 +568,8 @@
                 video.srcObject = null;
             }
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-            statusMessage.textContent = '[SYS] Power Down Complete. System Offline.';
-            statusMessage.className = 'text-center p-3 mb-6 status-box bg-gray-800 text-gray-400 font-medium';
+            console.log('[SYS] Power Down Complete. System Offline.');
+            
             startButton.disabled = false;
             stopButton.disabled = true;
             modeToggle.disabled = true;
@@ -803,47 +579,77 @@
             detections = [];
             
             // Reset state and UI toggles
-            isNoiseProtectionActive = false;
-            isLightProtectionActive = false;
             showProcessedMap = true;
-            setDetectionMode('V1'); // Reset to default V1
-            noiseToggle.classList.remove('active');
-            lightToggle.classList.remove('active');
+            setDetectionMode('V1'); 
             modeToggle.classList.remove('active');
-            modeIcon.textContent = 'visibility';
+            modeIcon.textContent = 'filter_b_and_w';
             modeText.textContent = 'Depth Map';
-            strobeOverlay.style.opacity = '0';
         }
 
+        async function runObjectDetection() {
+            if (currentDetectionMode === 'OFF' || !detectionModel) {
+                detections = [];
+                return;
+            }
+            
+            const now = performance.now();
+            if (now - lastDetectionTime < detectionInterval) {
+                return;
+            }
+            lastDetectionTime = now;
+            
+            try {
+                const rawDetections = await detectionModel.detect(video);
+                detections = rawDetections.filter(p => p.score >= detectionThreshold);
+                
+            } catch (error) {
+                console.error("Detection error:", error);
+                detections = [];
+            }
+        }
+        
         function processFrame(time) {
             if (!video.paused && !video.ended) {
                 
-                // 1. Draw the video frame
                 ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
                 
-                // 2. Apply Light-Based Protection (Flicker)
-                if (isLightProtectionActive) {
-                    // Randomly introduce a brief flash every 10 frames (approx 6 FPS)
-                    if (Math.random() < 0.1) {
-                         // High opacity white flash
-                        strobeOverlay.style.opacity = `${Math.random() * 0.4 + 0.6}`; // 60% to 100%
-                    } else {
-                        strobeOverlay.style.opacity = '0';
-                    }
-                }
-
-                // 3. If in Pseudo-Map Mode, apply the filter
                 if (showProcessedMap) {
                     applyPseudoDepthFilter();
                 }
 
-                // 4. Draw object detection results (on top of map or video)
                 drawDetections();
             }
             
-            // 5. Run detection periodically and request the next frame
             runObjectDetection();
             animationFrameId = requestAnimationFrame(processFrame);
+        }
+
+        // --- Image Processing Functions ---
+
+        function applyGaussianBlur(grayData, width, height) {
+            const blurredData = new Array(width * height).fill(0);
+            for (let y = 1; y < height - 1; y++) {
+                for (let x = 1; x < width - 1; x++) {
+                    let sum = 0;
+                    for (let ky = -1; ky <= 1; ky++) {
+                        for (let kx = -1; kx <= 1; kx++) {
+                            const pixelIndex = (y + ky) * width + (x + kx);
+                            const kernelValue = gaussianKernel[ky + 1][kx + 1];
+                            sum += grayData[pixelIndex] * kernelValue;
+                        }
+                    }
+                    blurredData[y * width + x] = sum / kernelSum;
+                }
+            }
+            for (let i = 0; i < width; i++) {
+                blurredData[i] = grayData[i]; 
+                blurredData[(height - 1) * width + i] = grayData[(height - 1) * width + i];
+            }
+            for (let j = 0; j < height; j++) {
+                blurredData[j * width] = grayData[j * width]; 
+                blurredData[j * width + width - 1] = grayData[j * width + width - 1];
+            }
+            return blurredData;
         }
 
         function applyPseudoDepthFilter() {
@@ -854,35 +660,17 @@
             
             const grayData = new Array(width * height);
 
-            // 1. Convert to grayscale and apply Noise Protection if active
             for (let i = 0; i < data.length; i += 4) {
                 let r = data[i];
                 let g = data[i + 1];
                 let b = data[i + 2];
                 
-                // --- Noise-Injection ---
-                if (isNoiseProtectionActive) {
-                    const noiseAmplitude = (noiseLevel / 100) * 128; // Max 128 noise magnitude
-                    const randomNoise = (Math.random() * 2 - 1) * noiseAmplitude; // -A to +A
-                    
-                    r = Math.min(255, Math.max(0, r + randomNoise));
-                    g = Math.min(255, Math.max(0, g + randomNoise));
-                    b = Math.min(255, Math.max(0, b + randomNoise));
-
-                    data[i] = r;
-                    data[i + 1] = g;
-                    data[i + 2] = b;
-                }
-                // -----------------------
-
                 const gray = 0.2126 * r + 0.7152 * g + 0.0722 * b;
                 grayData[i / 4] = gray;
             }
 
-            // 2. Apply Gaussian Blur
             const blurredGrayData = applyGaussianBlur(grayData, width, height);
 
-            // 3. Apply Sobel Edge Detection and Pseudo-Depth Coloring
             for (let y = 1; y < height - 1; y++) {
                 for (let x = 1; x < width - 1; x++) {
                     const i = y * width + x;
@@ -905,10 +693,10 @@
                     const magnitude = Math.sqrt(Gx * Gx + Gy * Gy);
                     const edgeStrength = Math.min(255, Math.max(0, magnitude * edgeSensitivity)); 
 
-                    // Color mapping: Blue (far/weak edge) to Red (near/strong edge)
                     let r, g, b;
                     const t = edgeStrength / 255.0; 
 
+                    // Color mapping: Blue (far/weak edge) to Red (near/strong edge)
                     if (t < 0.5) {
                         r = 0;
                         g = Math.floor(t * 2 * 255);
@@ -919,7 +707,6 @@
                         b = 0;
                     }
 
-                    // Apply the new color to the image data array
                     const dataIndex = i * 4;
                     data[dataIndex] = r;
                     data[dataIndex + 1] = g;
@@ -930,12 +717,114 @@
             ctx.putImageData(imageData, 0, 0);
         }
 
+        // --- Detection Drawing Functions ---
+
+        function drawRigSkeleton(x, y, width, height) {
+            // Rig drawing only for V1
+            if (currentDetectionMode !== 'V1') return; 
+
+            // V4.0 Rig Color: Bright Cyan
+            ctx.strokeStyle = '#2dd4bf'; 
+            ctx.fillStyle = '#67e8f9'; 
+            ctx.lineWidth = 3; 
+            ctx.shadowBlur = 0; 
+
+            const jointRadius = Math.max(3, Math.min(7, height * 0.007)); 
+
+            const p = (relX, relY) => ({
+                x: x + width * relX,
+                y: y + height * relY
+            });
+
+            const points = {
+                nose: p(0.5, 0.05), leftEye: p(0.45, 0.05), rightEye: p(0.55, 0.05),
+                leftEar: p(0.35, 0.1), rightEar: p(0.65, 0.1),
+                leftShoulder: p(0.3, 0.25), rightShoulder: p(0.7, 0.25),
+                leftHip: p(0.4, 0.6), rightHip: p(0.6, 0.6),
+                leftElbow: p(0.2, 0.45), rightElbow: p(0.8, 0.45),
+                leftWrist: p(0.1, 0.7), rightWrist: p(0.9, 0.7),
+                leftKnee: p(0.4, 0.8), rightKnee: p(0.6, 0.8),
+                leftAnkle: p(0.4, 0.95), rightAnkle: p(0.6, 0.95),
+            };
+
+            const connections = [
+                [points.leftEye, points.nose], [points.rightEye, points.nose],
+                [points.leftEar, points.leftShoulder], [points.rightEar, points.rightShoulder],
+                [points.leftShoulder, points.rightShoulder], [points.leftShoulder, points.leftHip],
+                [points.rightShoulder, points.rightHip], [points.leftHip, points.rightHip],
+                [points.leftShoulder, points.leftElbow], [points.leftElbow, points.leftWrist],
+                [points.rightShoulder, points.rightElbow], [points.rightElbow, points.rightWrist],
+                [points.leftHip, points.leftKnee], [points.leftKnee, points.leftAnkle],
+                [points.rightHip, points.rightKnee], [points.rightKnee, points.rightAnkle],
+            ];
+            
+            ctx.beginPath();
+            connections.forEach(([p1, p2]) => { ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y); });
+            ctx.stroke();
+
+            Object.values(points).forEach(p => {
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, jointRadius, 0, 2 * Math.PI);
+                ctx.fill();
+            });
+        }
+
+
+        function drawDetections() {
+            ctx.lineWidth = 2;
+            ctx.font = '14px Inter, sans-serif';
+            ctx.shadowBlur = 5;
+
+            detections.forEach(prediction => {
+                const [x, y, width, height] = prediction.bbox;
+                const score = (prediction.score * 100).toFixed(1);
+                const label = `${prediction.class} (${score}%)`;
+                
+                let boxColor;
+
+                if (prediction.class === 'person') {
+                    // V2 gets the primary-cyan color (Pico-Pro, high precision, no rig)
+                    boxColor = currentDetectionMode === 'V2' ? '#2dd4bf' : '#fcd34d'; // V1 is yellow
+                    
+                    if (currentDetectionMode === 'V1') {
+                        drawRigSkeleton(x, y, width, height); 
+                    }
+
+                } else if (prediction.class === 'cell phone' || prediction.class === 'laptop') {
+                    boxColor = '#f59e0b'; // Amber for devices
+                } else {
+                    boxColor = '#a78bfa'; // Violet for general objects
+                }
+                
+                ctx.strokeStyle = boxColor; 
+                ctx.fillStyle = boxColor;
+                
+                ctx.shadowColor = boxColor; 
+                ctx.strokeRect(x, y, width, height);
+
+                const textWidth = ctx.measureText(label).width;
+                const textHeight = 18; 
+                
+                // Draw opaque background for label
+                ctx.save();
+                ctx.fillStyle = boxColor;
+                ctx.fillRect(x, y, textWidth + 10, textHeight + 4);
+                ctx.restore();
+
+                // Draw Label Text
+                ctx.fillStyle = '#0d1117'; // Text inside label box is dark
+                ctx.shadowBlur = 0;
+                ctx.fillText(label, x + 5, y + textHeight - 2);
+            });
+        }
+
         // Initial setup
         document.addEventListener('DOMContentLoaded', () => {
             loadDetectionModel();
             updateSensitivity(sensitivityInput.value);
-            updateNoiseLevel(noiseLevelInput.value);
             window.addEventListener('beforeunload', stopCamera);
+            // Initialize mode button visually
+            modeToggle.classList.toggle('active', showProcessedMap);
         });
 
     </script>

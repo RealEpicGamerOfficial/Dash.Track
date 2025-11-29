@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Webcam Pseudo-Depth/Object Mapper</title>
+    <title>Dash.Track v3.1 - Model Selector</title>
     <!-- Load TensorFlow.js and COCO-SSD for Object Detection -->
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
@@ -13,20 +13,28 @@
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     
     <style>
-        /* Custom styles for canvas and video alignment */
+        /* Custom styles for deep futuristic aesthetic */
+        body {
+            background-color: #0c0d11; /* Very dark background */
+        }
+        .ui-card {
+            background-color: #1a1b24; /* Darker card background */
+            border: 1px solid #313340;
+            transition: all 0.3s ease-in-out;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
+        }
         .camera-container {
             position: relative;
             width: 100%;
             max-width: 800px;
             margin: auto;
-            border-radius: 1.5rem; /* rounded-3xl */
+            border-radius: 1.5rem;
             overflow: hidden;
-            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
-            border: 4px solid #4f46e5; /* Border to highlight the view area */
-            transition: all 0.3s ease-in-out;
+            /* Aggressive futuristic glow */
+            box-shadow: 0 0 50px rgba(100, 21, 255, 0.6), 0 0 15px rgba(126, 34, 206, 0.9);
+            border: 3px solid #6366f1;
         }
-        
-        /* Ensure the container fills the screen in fullscreen mode */
+        /* Fullscreen handling */
         .camera-container:fullscreen {
             max-width: 100vw;
             max-height: 100vh;
@@ -37,22 +45,85 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            background-color: #0d0d0d;
+            background-color: #000;
+            box-shadow: none;
+            border: none;
         }
 
-        #webcamVideo {
-            /* Video element is hidden but used as the source */
-            display: none;
-        }
+        #webcamVideo { display: none; }
         #outputCanvas {
             display: block;
             width: 100%;
             height: auto;
-            background-color: #0d0d0d;
-            /* In fullscreen, make sure the canvas fits the window */
-            max-width: 100%;
-            max-height: 100%;
-            object-fit: contain; 
+            background-color: #000;
+        }
+        
+        /* Button Styling: Highly stylized 'Activate' state */
+        .btn-activate {
+            background: linear-gradient(90deg, #6366f1 0%, #a855f7 100%);
+            color: white;
+            box-shadow: 0 4px 15px rgba(139, 92, 246, 0.5);
+            font-size: 1.25rem; /* Large text */
+        }
+        .btn-activate:hover {
+            background: linear-gradient(90deg, #4f46e5 0%, #9333ea 100%);
+            transform: translateY(-2px);
+        }
+        .btn-secondary {
+            background-color: #3f3f46; /* Zinc-600 for inactive/utility */
+            color: #d1d5db; /* Gray-300 */
+            transition: background-color 0.2s, box-shadow 0.2s;
+        }
+        .btn-core-toggle {
+            background-color: #262731; /* Darker background for toggles */
+            border: 1px solid #475569;
+        }
+        .btn-core-toggle.active {
+            background-color: #16a34a; /* Green-600 for active state */
+            color: #f0fdf4;
+            box-shadow: 0 0 10px rgba(22, 163, 74, 0.7);
+            border-color: #16a34a;
+        }
+        
+        /* Slider thumb/track */
+        #sensitivity, #noiseLevel {
+            -webkit-appearance: none;
+            appearance: none;
+            height: 8px;
+            background: #313340;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        #sensitivity::-webkit-slider-thumb, #noiseLevel::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            background: #eab308; /* Amber for controls */
+            border-radius: 50%;
+            border: 4px solid #1a1b24;
+            box-shadow: 0 0 10px rgba(234, 179, 8, 0.8);
+        }
+        
+        /* Status Box Glow */
+        .status-box {
+            border-left-width: 5px;
+            border-radius: 0.5rem;
+            animation: pulse-glow 2s infinite ease-in-out;
+            border-color: #ef4444; /* Default to Red-500 */
+        }
+        .status-box.ready {
+            border-color: #22c55e; /* Green-500 */
+        }
+        .status-box.loading {
+            border-color: #f59e0b; /* Amber-500 */
+        }
+        .status-box.active {
+            border-color: #6366f1; /* Indigo-500 */
+        }
+        @keyframes pulse-glow {
+            0%, 100% { box-shadow: 0 0 5px rgba(0, 0, 0, 0); }
+            50% { box-shadow: 0 0 15px rgba(99, 102, 241, 0.5); }
         }
     </style>
     <script>
@@ -67,71 +138,123 @@
         }
     </script>
 </head>
-<body class="bg-gray-900 text-white min-h-screen p-4 sm:p-8 font-sans">
+<body class="text-white min-h-screen p-4 sm:p-8 font-sans">
 
-    <!-- Full Screen Warning Modal -->
-    <div id="warningModal" class="fixed inset-0 z-50 flex items-center justify-center bg-gray-900 bg-opacity-95 backdrop-blur-sm">
-        <div class="bg-gray-800 p-8 rounded-2xl shadow-2xl max-w-lg w-full border border-yellow-500">
+    <!-- Warning Modal -->
+    <div id="warningModal" class="fixed inset-0 z-50 flex items-center justify-center bg-gray-900 bg-opacity-95 backdrop-blur-md">
+        <div class="ui-card p-8 rounded-2xl shadow-2xl max-w-lg w-full border-t-4 border-yellow-500 transition-all hover:shadow-yellow-500/30">
             <h2 class="text-3xl font-extrabold text-yellow-400 mb-4 flex items-center">
-                <span class="material-icons text-4xl mr-3">warning</span>
-                Important Notice
+                <span class="material-icons text-4xl mr-3">security</span>
+                PROPRIETARY DATA NOTICE
             </h2>
-            <!-- Text updated to remove asterisks/forced bolding -->
-            <p class="text-gray-300 leading-relaxed mb-6">
-                [!] Notice, this uses a camera, likely your webcam, to preform a ToF (Time of Flight) sensor simulation. It utilizes 3rd party systems (TensorFlow.js) to detect objects, humans, animals, and more directly within your browser. No video data leaves your device.
+            <p class="text-gray-300 leading-relaxed mb-6 text-sm">
+                This is a GameCo. Experiment. All AI processing (TensorFlow.js) runs locally in your browser. **No video data is transmitted externally.** The Protection Systems (Noise, Light) are experimental features intended for disruptive research.
             </p>
-            <button onclick="document.getElementById('warningModal').classList.add('hidden')" class="w-full py-3 bg-yellow-600 hover:bg-yellow-700 transition duration-150 text-black font-bold rounded-xl shadow-md">
-                I Understand and Accept
+            <button onclick="document.getElementById('warningModal').classList.add('hidden')" class="w-full py-3 bg-yellow-600 hover:bg-yellow-500 transition duration-300 text-gray-900 font-bold rounded-xl shadow-lg hover:shadow-yellow-500/50">
+                INITIATE PROTOCOL
             </button>
         </div>
     </div>
 
-    <div class="max-w-4xl mx-auto">
-        <h1 class="text-4xl font-bold mb-4 text-center text-indigo-400">Advanced Pseudo-Depth & Object Mapper</h1>
-        <p class="text-center text-gray-400 mb-8">
-            Combines edge mapping with machine learning to detect people/objects.
+    <div class="max-w-5xl mx-auto">
+        <!-- New Branding -->
+        <h1 class="text-5xl font-extrabold mb-1 text-center text-transparent bg-clip-text bg-gradient-to-r from-indigo-300 to-purple-400 tracking-widest drop-shadow-lg">
+            DASH.<span class="text-yellow-400">TRACK</span>
+        </h1>
+        <p class="text-center text-gray-500 text-xs font-mono uppercase mb-8">
+            GameCo. LLC. | SYSTEM V3.1
         </p>
 
-        <div id="statusMessage" class="text-center p-3 mb-6 rounded-lg bg-yellow-900/50 text-yellow-300">
-            Initializing machine learning model and camera...
+        <!-- Status Box: Modernized -->
+        <div id="statusMessage" class="text-center p-3 mb-6 status-box bg-gray-800 text-gray-300 font-medium loading">
+            [SYS] Initializing Machine Learning Module...
         </div>
 
-        <!-- Controls Section -->
-        <div class="mb-8 p-4 bg-gray-800 rounded-xl shadow-inner">
-            <label for="sensitivity" class="block text-sm font-medium text-gray-300 mb-2">
-                Edge Map Sensitivity: <span id="sensitivityValue" class="font-bold text-indigo-400">1.5</span>x
-            </label>
-            <input type="range" id="sensitivity" min="0.5" max="4.0" step="0.1" value="1.5" oninput="updateSensitivity(this.value)" class="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer range-lg">
-            <p class="text-xs text-gray-500 mt-2">Higher sensitivity means weaker edges appear stronger ("closer").</p>
-        </div>
-        <!-- End Controls Section -->
-
-        <div class="camera-container mb-8">
+        <!-- Camera Container -->
+        <div class="camera-container mb-6">
             <video id="webcamVideo" autoplay playsinline muted></video>
-            <!-- Default canvas dimensions set to 16:9 ratio -->
             <canvas id="outputCanvas" width="800" height="450"></canvas>
+            
+            <!-- Strobe Effect Overlay (starts invisible) -->
+            <div id="strobeOverlay" class="absolute inset-0 bg-white opacity-0 pointer-events-none transition-opacity duration-75"></div>
         </div>
 
-        <div class="flex flex-col sm:flex-row justify-center gap-4">
-            <!-- Start Mapping Button (Icon: videocam) -->
-            <button id="startButton" onclick="startCamera()" class="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 transition duration-150 text-white font-semibold rounded-xl shadow-lg shadow-indigo-500/50 flex items-center justify-center" disabled>
-                <span class="material-icons mr-2">videocam</span>
-                Start Mapping
+        <!-- MAIN POWER CONTROLS (BIG FUNCTION) -->
+        <div class="grid grid-cols-2 gap-4 mb-6">
+            <button id="startButton" onclick="startCamera()" class="py-5 btn-activate text-white font-extrabold rounded-xl shadow-lg transition duration-300 transform hover:scale-[1.01] active:scale-98 flex items-center justify-center text-xl disabled:opacity-50" disabled>
+                <span class="material-icons text-3xl mr-3">power_settings_new</span>
+                POWER ON SYSTEM
             </button>
-            <!-- Switch View Button (Icon: visibility) -->
-            <button id="modeToggle" onclick="toggleMode()" class="px-6 py-3 bg-purple-600 hover:bg-purple-700 transition duration-150 text-white font-semibold rounded-xl flex items-center justify-center" disabled>
-                <span class="material-icons mr-2" id="modeIcon">visibility</span>
-                Switch View (Map)
+            <button id="stopButton" onclick="stopCamera()" class="py-5 bg-gray-800 hover:bg-red-800 transition duration-300 text-red-400 font-extrabold rounded-xl shadow-lg transform hover:scale-[1.01] active:scale-98 flex items-center justify-center text-xl disabled:opacity-50 disabled:hover:bg-gray-800" disabled>
+                <span class="material-icons text-3xl mr-3">emergency_exit</span>
+                POWER DOWN
             </button>
-            <!-- Fullscreen Button (Icon: fullscreen) -->
-            <button id="fullscreenButton" onclick="requestFullscreen()" class="px-6 py-3 bg-pink-600 hover:bg-pink-700 transition duration-150 text-white font-semibold rounded-xl flex items-center justify-center" disabled>
-                <span class="material-icons mr-2">fullscreen</span>
-                Fullscreen
+        </div>
+
+        <!-- CORE TOGGLES (Simplified, Big Buttons) -->
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+            <!-- 1. Display Mode Toggle -->
+            <button id="modeToggle" onclick="toggleMode()" class="p-4 btn-core-toggle rounded-xl shadow-md flex flex-col items-center justify-center text-center text-sm transform active:scale-98 disabled:opacity-50" disabled>
+                <span class="material-icons text-4xl mb-1 text-indigo-400" id="modeIcon">visibility</span>
+                <span id="modeText" class="font-semibold text-gray-300">Depth Map</span>
             </button>
-            <!-- Stop Button (Icon: stop_circle) -->
-            <button id="stopButton" onclick="stopCamera()" class="px-6 py-3 bg-gray-700 hover:bg-gray-600 transition duration-150 text-white font-semibold rounded-xl flex items-center justify-center" disabled>
-                <span class="material-icons mr-2">stop_circle</span>
-                Stop Camera
+            
+            <!-- 2. AI Model Selector -->
+            <button id="aiDetectionToggle" onclick="toggleAIDetectionMode()" class="p-4 btn-core-toggle rounded-xl shadow-md flex flex-col items-center justify-center text-center text-sm transform active:scale-98 disabled:opacity-50" disabled>
+                <span class="material-icons text-4xl mb-1 text-yellow-400" id="aiIcon">smart_toy</span>
+                <span id="aiText" class="font-semibold text-yellow-400">AI Detection: V1</span>
+            </button>
+
+            <!-- 3. Noise Protection Toggle -->
+            <button id="noiseToggle" onclick="toggleNoiseProtection()" class="p-4 btn-core-toggle rounded-xl shadow-md flex flex-col items-center justify-center text-center text-sm transform active:scale-98 disabled:opacity-50">
+                <span class="material-icons text-4xl mb-1 text-purple-400">surround_sound</span>
+                <span class="font-semibold text-gray-300">Noise-Injection</span>
+            </button>
+            
+            <!-- 4. Light Protection Toggle -->
+            <button id="lightToggle" onclick="toggleLightProtection()" class="p-4 btn-core-toggle rounded-xl shadow-md flex flex-col items-center justify-center text-center text-sm transform active:scale-98 disabled:opacity-50">
+                <span class="material-icons text-4xl mb-1 text-red-400">flare</span>
+                <span class="font-semibold text-gray-300">Light Disruption</span>
+            </button>
+        </div>
+
+        <!-- FINE-TUNING SLIDERS -->
+        <div class="ui-card p-5 rounded-xl mb-6">
+            <h2 class="text-xl font-bold text-gray-300 mb-3 flex items-center border-b border-gray-700/50 pb-2">
+                <span class="material-icons mr-2 text-xl text-yellow-400">settings</span> Fine-Tuning Console
+            </h2>
+            <div class="space-y-4">
+                <!-- Sensitivity Slider -->
+                <div>
+                    <label for="sensitivity" class="block text-sm font-semibold text-gray-400 flex justify-between">
+                        Depth Sensitivity Multiplier
+                        <span id="sensitivityValue" class="font-mono text-yellow-400">1.5x</span>
+                    </label>
+                    <input type="range" id="sensitivity" min="0.5" max="4.0" step="0.1" value="1.5" oninput="updateSensitivity(this.value)" class="w-full mt-1">
+                </div>
+
+                <!-- Noise Level Slider -->
+                <div>
+                    <label for="noiseLevel" class="block text-sm font-semibold text-gray-400 flex justify-between">
+                        Noise-Injection Strength (0-100%)
+                        <span id="noiseLevelValue" class="font-mono text-yellow-400">10%</span>
+                    </label>
+                    <input type="range" id="noiseLevel" min="0" max="100" step="1" value="10" oninput="updateNoiseLevel(this.value)" class="w-full mt-1">
+                </div>
+            </div>
+        </div>
+
+        <!-- UTILITY CONTROLS -->
+        <div class="grid grid-cols-2 gap-4">
+             <!-- RTD Recording Button -->
+            <button id="recordButton" onclick="toggleRecording()" class="py-3 bg-gray-700 hover:bg-red-700 transition duration-300 text-white font-semibold rounded-lg shadow-inner transform active:scale-98 flex items-center justify-center text-sm disabled:opacity-50" disabled>
+                <span class="material-icons text-xl mr-2" id="recordIcon">radio_button_unchecked</span>
+                <span id="recordText">Start RTD Recording</span>
+            </button>
+            <!-- Fullscreen Button -->
+            <button id="fullscreenButton" onclick="requestFullscreen()" class="py-3 bg-gray-700 hover:bg-gray-600 transition duration-300 text-white font-semibold rounded-lg shadow-inner flex items-center justify-center text-sm disabled:opacity-50" disabled>
+                <span class="material-icons text-xl mr-2">fullscreen</span>
+                Maximize Canvas
             </button>
         </div>
     </div>
@@ -145,101 +268,195 @@
         const stopButton = document.getElementById('stopButton');
         const modeToggle = document.getElementById('modeToggle');
         const modeIcon = document.getElementById('modeIcon');
+        const modeText = document.getElementById('modeText');
         const fullscreenButton = document.getElementById('fullscreenButton');
         const sensitivityInput = document.getElementById('sensitivity');
         const sensitivityValueSpan = document.getElementById('sensitivityValue');
 
+        // Feature Elements
+        const noiseToggle = document.getElementById('noiseToggle');
+        const noiseLevelInput = document.getElementById('noiseLevel');
+        const noiseLevelValueSpan = document.getElementById('noiseLevelValue');
+        const lightToggle = document.getElementById('lightToggle');
+        const recordButton = document.getElementById('recordButton');
+        const recordIcon = document.getElementById('recordIcon');
+        const recordText = document.getElementById('recordText');
+        const strobeOverlay = document.getElementById('strobeOverlay');
+        
+        // AI Detection Selector Elements
+        const aiDetectionToggle = document.getElementById('aiDetectionToggle');
+        const aiIcon = document.getElementById('aiIcon');
+        const aiText = document.getElementById('aiText');
+
+        // State Variables
         let animationFrameId;
         let stream;
         let showProcessedMap = true;
-        let edgeSensitivity = 1.5; // Controls the strength of the Sobel filter output
-        
+        let edgeSensitivity = 1.5; 
+        let isNoiseProtectionActive = false;
+        let noiseLevel = 10; // 0-100 range
+        let isLightProtectionActive = false;
         let detectionModel = null;
         let detections = [];
-        let detectionInterval = 500; // Run object detection every 500ms (to save performance)
+        
+        // New State for Model Selection
+        let currentDetectionMode = 'V1'; // 'V1', 'V2', 'OFF'
+        let detectionInterval = 500; // Default V1
+        let detectionThreshold = 0.6; // Default V1
         let lastDetectionTime = 0;
 
-        // Sobel kernels for X and Y direction
+        // Sobel Kernels
         const sobelX = [ [-1, 0, 1], [-2, 0, 2], [-1, 0, 1] ];
         const sobelY = [ [-1, -2, -1], [0, 0, 0], [1, 2, 1] ];
-
-        // 3x3 Gaussian Blur Kernel (normalized to 1/16)
+        // Gaussian Blur Kernel
         const gaussianKernel = [ [1, 2, 1], [2, 4, 2], [1, 2, 1] ];
         const kernelSum = 16;
         
         // --- Helper Functions ---
 
-        /**
-         * Loads the COCO-SSD object detection model.
-         */
         async function loadDetectionModel() {
-            statusMessage.textContent = 'Loading Machine Learning Model... (This may take a moment)';
+            statusMessage.textContent = '[SYS] Loading ML Module...';
+            statusMessage.className = 'text-center p-3 mb-6 status-box bg-gray-800 text-yellow-300 font-medium loading';
             try {
-                // Ensure TensorFlow.js is ready before loading the model
                 await tf.ready(); 
                 detectionModel = await cocoSsd.load();
-                statusMessage.textContent = 'Model loaded successfully. Ready to start camera.';
-                statusMessage.className = 'text-center p-3 mb-6 rounded-lg bg-green-900/50 text-green-300';
+                // Set initial mode parameters
+                setDetectionMode('V1'); 
+
+                statusMessage.textContent = '[SYS] Module online. Ready for Power On.';
+                statusMessage.className = 'text-center p-3 mb-6 status-box bg-gray-800 text-green-300 font-medium ready';
                 startButton.disabled = false;
             } catch (error) {
                 console.error("Error loading model:", error);
-                statusMessage.textContent = 'Error loading ML model. Check console for details.';
-                statusMessage.className = 'text-center p-3 mb-6 rounded-lg bg-red-900/50 text-red-300';
-            }
-        }
-
-        /**
-         * Requests fullscreen mode for the canvas container.
-         */
-        function requestFullscreen() {
-            const container = document.querySelector('.camera-container');
-            if (container.requestFullscreen) {
-                container.requestFullscreen();
-            } else if (container.mozRequestFullScreen) { /* Firefox */
-                container.mozRequestFullScreen();
-            } else if (container.webkitRequestFullscreen) { /* Chrome, Safari and Opera */
-                container.webkitRequestFullscreen();
-            } else if (container.msRequestFullscreen) { /* IE/Edge */
-                container.msRequestFullscreen();
-            }
-        }
-
-        /**
-         * Performs object detection on the current video frame.
-         */
-        async function runObjectDetection() {
-            if (detectionModel && video.readyState === 4) {
-                const now = performance.now();
-                if (now - lastDetectionTime < detectionInterval) {
-                    return;
-                }
-                lastDetectionTime = now;
-                
-                try {
-                    // Detect objects in the video element
-                    detections = await detectionModel.detect(video);
-                } catch (error) {
-                    console.error("Detection error:", error);
-                    detections = []; // Clear detections on error
-                }
+                statusMessage.textContent = '[ERR] Model load failed. Check console.';
+                statusMessage.className = 'text-center p-3 mb-6 status-box bg-gray-800 text-red-300 font-medium';
             }
         }
         
         /**
-         * Updates the edge sensitivity multiplier from the slider.
+         * Sets the detection model/simulation parameters based on mode.
          */
-        function updateSensitivity(value) {
-            edgeSensitivity = parseFloat(value);
-            sensitivityValueSpan.textContent = edgeSensitivity.toFixed(1);
+        function setDetectionMode(mode) {
+            currentDetectionMode = mode;
+            aiDetectionToggle.classList.remove('active', 'bg-red-800', 'hover:bg-red-700');
+            aiIcon.classList.remove('text-red-400', 'text-green-400', 'text-yellow-400');
+
+            switch (mode) {
+                case 'V1':
+                    // Dash.Track Default: Fast, general purpose
+                    detectionInterval = 500; // 2 FPS
+                    detectionThreshold = 0.6;
+                    aiText.innerHTML = 'AI Detection: <span class="text-yellow-400 font-bold">V1 (Default)</span>';
+                    aiIcon.classList.add('text-yellow-400');
+                    aiDetectionToggle.classList.add('active'); // V1 is considered "active"
+                    statusMessage.textContent = '[SYS] AI Detection set to V1 (Standard).';
+                    break;
+                case 'V2':
+                    // Pico-Pro Advanced: Higher confidence, slightly slower simulation
+                    detectionInterval = 750; // ~1.3 FPS (Simulated slower/deeper analysis)
+                    detectionThreshold = 0.8; 
+                    aiText.innerHTML = 'AI Detection: <span class="text-green-400 font-bold">V2 (Pico-Pro)</span>';
+                    aiIcon.classList.add('text-green-400');
+                    aiDetectionToggle.classList.add('active');
+                    statusMessage.textContent = '[SYS] AI Detection set to V2 (Advanced). Pose Rig Enabled.';
+                    break;
+                case 'OFF':
+                    // Disabled
+                    detectionInterval = Infinity; // Effectively stops updates
+                    detectionThreshold = 1.0;
+                    detections = []; // Clear current detections
+                    aiText.innerHTML = 'AI Detection: <span class="text-red-400 font-bold">OFF</span>';
+                    aiIcon.classList.add('text-red-400');
+                    aiDetectionToggle.classList.remove('active');
+                    aiDetectionToggle.classList.add('bg-red-800', 'hover:bg-red-700');
+                    statusMessage.textContent = '[SYS] AI Detection Disabled.';
+                    break;
+            }
+            statusMessage.className = 'text-center p-3 mb-6 status-box bg-gray-800 text-indigo-300 font-medium active';
+        }
+
+        function toggleAIDetectionMode() {
+            switch (currentDetectionMode) {
+                case 'V1':
+                    setDetectionMode('V2');
+                    break;
+                case 'V2':
+                    setDetectionMode('OFF');
+                    break;
+                case 'OFF':
+                default:
+                    setDetectionMode('V1');
+                    break;
+            }
         }
 
 
-        /**
-         * Applies a 3x3 Gaussian blur filter to the grayscale data.
-         */
-        function applyGaussianBlur(grayData, width, height) {
-            const blurredData = new Array(width * height).fill(0); // Initialize with 0
+        function requestFullscreen() {
+            const container = document.querySelector('.camera-container');
+            if (container.requestFullscreen) {
+                container.requestFullscreen();
+            } else if (container.webkitRequestFullscreen) {
+                container.webkitRequestFullscreen();
+            }
+        }
+
+        function handleFullscreenChange() {
+            const isFullscreen = document.fullscreenElement || document.webkitFullscreenElement;
+            if (stream) {
+                if (isFullscreen) {
+                    statusMessage.textContent = '[SYS] Fullscreen engaged. ESC to disengage.';
+                } else {
+                    statusMessage.textContent = `[SYS] Dash.Track Active at ${canvas.width}x${canvas.height}.`;
+                }
+                statusMessage.className = 'text-center p-3 mb-6 status-box bg-gray-800 text-indigo-300 font-medium active';
+            }
+        }
+        document.addEventListener('fullscreenchange', handleFullscreenChange);
+        document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+        
+        async function runObjectDetection() {
+            if (currentDetectionMode === 'OFF' || !detectionModel) {
+                detections = [];
+                return;
+            }
+
+            // Skip detection if noise protection is active (simulates disruption)
+            if (isNoiseProtectionActive) {
+                detections = [];
+                return;
+            }
             
+            const now = performance.now();
+            if (now - lastDetectionTime < detectionInterval) {
+                return;
+            }
+            lastDetectionTime = now;
+            
+            try {
+                // Run detection with the current video frame
+                const rawDetections = await detectionModel.detect(video);
+
+                // Filter detections based on the current threshold
+                detections = rawDetections.filter(p => p.score >= detectionThreshold);
+                
+            } catch (error) {
+                console.error("Detection error:", error);
+                detections = [];
+            }
+        }
+        
+        function updateSensitivity(value) {
+            edgeSensitivity = parseFloat(value);
+            sensitivityValueSpan.textContent = edgeSensitivity.toFixed(1) + 'x';
+        }
+
+        function updateNoiseLevel(value) {
+            noiseLevel = parseInt(value, 10);
+            noiseLevelValueSpan.textContent = noiseLevel + '%';
+        }
+
+        function applyGaussianBlur(grayData, width, height) {
+            const blurredData = new Array(width * height).fill(0);
             for (let y = 1; y < height - 1; y++) {
                 for (let x = 1; x < width - 1; x++) {
                     let sum = 0;
@@ -253,7 +470,7 @@
                     blurredData[y * width + x] = sum / kernelSum;
                 }
             }
-            // Handle border pixels (copying original)
+            // Handle border pixels
             for (let i = 0; i < width; i++) {
                 blurredData[i] = grayData[i]; 
                 blurredData[(height - 1) * width + i] = grayData[(height - 1) * width + i];
@@ -264,75 +481,272 @@
             }
             return blurredData;
         }
-
+        
         /**
-         * Draws the bounding boxes and labels for detected objects.
+         * Simulates a 17-point pose estimation skeleton based on the bounding box.
+         * This is now a feature exclusively of the V2 (Pico-Pro) mode.
          */
-        function drawDetections() {
-            // Draw detections regardless of view mode, they overlay the canvas
-            ctx.lineWidth = 2;
-            ctx.font = '16px Inter, sans-serif';
+        function drawRigSkeleton(x, y, width, height) {
+            if (currentDetectionMode !== 'V2') return;
 
-            detections.forEach(prediction => {
-                // prediction.bbox is [x, y, width, height] in video coordinates
-                const [x, y, width, height] = prediction.bbox;
-                const score = (prediction.score * 100).toFixed(1);
-                const label = `${prediction.class} (${score}%)`;
+            // Use a specific color for the V2 Rig
+            ctx.strokeStyle = '#4ade80'; // Green for V2 skeleton lines
+            ctx.fillStyle = '#bbf7d0'; // Light green for joints
+            ctx.lineWidth = 3; // Thicker lines for V2
+            ctx.shadowBlur = 0; 
 
-                // Set color based on object type
-                if (prediction.class === 'person') {
-                    ctx.strokeStyle = '#34D399'; // Green for people
-                    ctx.fillStyle = '#34D399';
-                } else if (prediction.class === 'cell phone' || prediction.class === 'laptop') {
-                    ctx.strokeStyle = '#FBBF24'; // Amber for tech
-                    ctx.fillStyle = '#FBBF24';
-                } else {
-                    ctx.strokeStyle = '#6366F1'; // Indigo for others
-                    ctx.fillStyle = '#6366F1';
-                }
+            const jointRadius = Math.max(3, Math.min(7, height * 0.007)); // Responsive joint size
 
-                // Draw bounding box
-                ctx.strokeRect(x, y, width, height);
+            // 1. Define 17 Simulated Keypoints relative to the Bounding Box (BB)
+            const p = (relX, relY) => ({
+                x: x + width * relX,
+                y: y + height * relY
+            });
 
-                // Draw background for text
-                const textWidth = ctx.measureText(label).width;
-                const textHeight = 20; // Estimated line height
-                ctx.fillRect(x, y - textHeight, textWidth + 8, textHeight);
+            const points = {
+                // Head (Top 20% of BB)
+                nose: p(0.5, 0.05),
+                leftEye: p(0.45, 0.05),
+                rightEye: p(0.55, 0.05),
+                leftEar: p(0.35, 0.1),
+                rightEar: p(0.65, 0.1),
+                // Torso (20% - 60% of BB)
+                leftShoulder: p(0.3, 0.25),
+                rightShoulder: p(0.7, 0.25),
+                leftHip: p(0.4, 0.6),
+                rightHip: p(0.6, 0.6),
+                // Arms (25% - 75% of BB)
+                leftElbow: p(0.2, 0.45),
+                rightElbow: p(0.8, 0.45),
+                leftWrist: p(0.1, 0.7),
+                rightWrist: p(0.9, 0.7),
+                // Legs (60% - 95% of BB)
+                leftKnee: p(0.4, 0.8),
+                rightKnee: p(0.6, 0.8),
+                leftAnkle: p(0.4, 0.95),
+                rightAnkle: p(0.6, 0.95),
+            };
 
-                // Draw text
-                ctx.fillStyle = '#000000'; // Black text
-                ctx.fillText(label, x + 4, y - 5);
+            // 2. Define Connections (Bones)
+            const connections = [
+                // Head
+                [points.leftEye, points.nose],
+                [points.rightEye, points.nose],
+                [points.leftEar, points.leftShoulder],
+                [points.rightEar, points.rightShoulder],
+                // Torso
+                [points.leftShoulder, points.rightShoulder],
+                [points.leftShoulder, points.leftHip],
+                [points.rightShoulder, points.rightHip],
+                [points.leftHip, points.rightHip],
+                // Arms
+                [points.leftShoulder, points.leftElbow],
+                [points.leftElbow, points.leftWrist],
+                [points.rightShoulder, points.rightElbow],
+                [points.rightElbow, points.rightWrist],
+                // Legs
+                [points.leftHip, points.leftKnee],
+                [points.leftKnee, points.leftAnkle],
+                [points.rightHip, points.rightKnee],
+                [points.rightKnee, points.rightAnkle],
+            ];
+            
+            // 3. Draw Bones
+            ctx.beginPath();
+            connections.forEach(([p1, p2]) => {
+                ctx.moveTo(p1.x, p1.y);
+                ctx.lineTo(p2.x, p2.y);
+            });
+            ctx.stroke();
+
+            // 4. Draw Joints
+            Object.values(points).forEach(p => {
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, jointRadius, 0, 2 * Math.PI);
+                ctx.fill();
             });
         }
 
 
-        // --- Core Application Logic ---
+        function drawDetections() {
+            ctx.lineWidth = currentDetectionMode === 'V2' ? 4 : 2;
+            ctx.font = '16px Inter, sans-serif';
+            ctx.shadowBlur = currentDetectionMode === 'V2' ? 8 : 5;
+
+            detections.forEach(prediction => {
+                const [x, y, width, height] = prediction.bbox;
+                const score = (prediction.score * 100).toFixed(1);
+                const label = `${prediction.class} (${score}%)`;
+                
+                let boxColor;
+
+                if (prediction.class === 'person') {
+                    boxColor = currentDetectionMode === 'V2' ? '#4ade80' : '#34D399'; // Green/Teal
+                    
+                    // Draw Rig Skeleton only for 'person' in V2 mode
+                    if (currentDetectionMode === 'V2') {
+                        drawRigSkeleton(x, y, width, height);
+                    }
+
+                } else if (prediction.class === 'cell phone' || prediction.class === 'laptop') {
+                    boxColor = currentDetectionMode === 'V2' ? '#FDE047' : '#FBBF24'; // Brighter Amber
+                } else {
+                    boxColor = currentDetectionMode === 'V2' ? '#818CF8' : '#A78BFA'; // Violet/Indigo
+                }
+                
+                ctx.strokeStyle = boxColor; 
+                ctx.fillStyle = boxColor;
+                
+                // Draw Bounding Box
+                ctx.shadowColor = boxColor; 
+                ctx.strokeRect(x, y, width, height);
+
+                const textWidth = ctx.measureText(label).width;
+                const textHeight = 20; 
+                
+                // Draw semi-transparent background for label
+                ctx.save();
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+                ctx.fillRect(x, y, textWidth + 10, textHeight + 4);
+                ctx.restore();
+
+                // Draw Label Text
+                ctx.fillStyle = '#FFFFFF';
+                ctx.shadowBlur = 0;
+                ctx.fillText(label, x + 5, y + textHeight - 2);
+            });
+        }
+
+        // --- Feature Toggles ---
 
         function toggleMode() {
             showProcessedMap = !showProcessedMap;
-            // Update button text and icon based on current mode
+            modeToggle.classList.toggle('active');
+            modeIcon.classList.toggle('text-indigo-400');
+            
             if (showProcessedMap) {
                 modeIcon.textContent = 'visibility';
-                modeToggle.lastChild.textContent = ' Switch View (Map)';
+                modeText.textContent = 'Depth Map';
             } else {
-                modeIcon.textContent = 'photo_camera'; // Use a different icon for raw video
-                modeToggle.lastChild.textContent = ' Switch View (Video)';
+                modeIcon.textContent = 'photo_camera'; 
+                modeText.textContent = 'Live Video';
+            }
+        }
+        
+        function toggleNoiseProtection() {
+            isNoiseProtectionActive = !isNoiseProtectionActive;
+            noiseToggle.classList.toggle('active', isNoiseProtectionActive);
+            
+            if (isNoiseProtectionActive) {
+                noiseToggle.classList.remove('bg-gray-700');
+                noiseToggle.classList.add('bg-green-600');
+                statusMessage.textContent = `[WARN] Noise-Injection Active. Level: ${noiseLevel}%. AI Detection Disruption engaged.`;
+                statusMessage.className = 'text-center p-3 mb-6 status-box bg-gray-800 text-orange-300 font-medium active';
+            } else {
+                noiseToggle.classList.remove('bg-green-600');
+                noiseToggle.classList.add('bg-gray-700');
+                statusMessage.textContent = '[SYS] Noise-Injection Deactivated.';
+                statusMessage.className = 'text-center p-3 mb-6 status-box bg-gray-800 text-indigo-300 font-medium active';
+                detections = []; // Clear current detections
             }
         }
 
+        function toggleLightProtection() {
+            isLightProtectionActive = !isLightProtectionActive;
+            lightToggle.classList.toggle('active', isLightProtectionActive);
+
+            if (isLightProtectionActive) {
+                lightToggle.classList.remove('bg-gray-700');
+                lightToggle.classList.add('bg-green-600');
+                statusMessage.textContent = '[WARN] Light-Based Disruption Active. Video Stream Stability Compromised.';
+                statusMessage.className = 'text-center p-3 mb-6 status-box bg-gray-800 text-red-300 font-medium active';
+            } else {
+                lightToggle.classList.remove('bg-green-600');
+                lightToggle.classList.add('bg-gray-700');
+                // Ensure strobe overlay is fully hidden when off
+                strobeOverlay.style.opacity = '0';
+                statusMessage.textContent = '[SYS] Light-Based Disruption Deactivated.';
+                statusMessage.className = 'text-center p-3 mb-6 status-box bg-gray-800 text-indigo-300 font-medium active';
+            }
+        }
+        
+        // --- RTD Recording ---
+        
+        function toggleRecording() {
+            if (isRecording) {
+                stopRecording();
+            } else {
+                startRecording();
+            }
+        }
+
+        function startRecording() {
+            if (!stream) return;
+            
+            isRecording = true;
+            recordedChunks = [];
+
+            // Capture the content of the CANVAS (the processed feed)
+            const canvasStream = canvas.captureStream(30); // 30 FPS
+            mediaRecorder = new MediaRecorder(canvasStream, { mimeType: 'video/webm; codecs=vp8' });
+
+            mediaRecorder.ondataavailable = (event) => {
+                if (event.data.size > 0) {
+                    recordedChunks.push(event.data);
+                }
+            };
+
+            mediaRecorder.onstop = () => {
+                const blob = new Blob(recordedChunks, { type: 'video/webm' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.style.display = 'none';
+                a.href = url;
+                a.download = `DashTrack_RTD_${new Date().toISOString()}.webm`;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                
+                statusMessage.textContent = `[SYS] RTD Recording Saved and Downloaded.`;
+            };
+
+            mediaRecorder.start();
+
+            // UI Update
+            recordIcon.textContent = 'fiber_manual_record';
+            recordButton.classList.remove('bg-gray-700', 'hover:bg-red-700');
+            recordButton.classList.add('bg-red-600', 'hover:bg-red-500', 'active');
+            recordText.textContent = 'Stop Recording';
+            statusMessage.textContent = '[SYS] RTD Recording started.';
+        }
+
+        function stopRecording() {
+            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+                mediaRecorder.stop();
+            }
+            isRecording = false;
+
+            // UI Update
+            recordIcon.textContent = 'radio_button_unchecked';
+            recordButton.classList.remove('bg-red-600', 'hover:bg-red-500', 'active');
+            recordButton.classList.add('bg-gray-700', 'hover:bg-red-700');
+            recordText.textContent = 'Start RTD Recording';
+            statusMessage.textContent = '[SYS] RTD Recording finalized. Preparing download...';
+        }
+        
+        // --- Core Application Logic ---
 
         function startCamera() {
             if (stream) { stopCamera(); }
 
-            statusMessage.textContent = 'Requesting access to webcam (attempting 16:9 resolution)...';
-            statusMessage.className = 'text-center p-3 mb-6 rounded-lg bg-yellow-900/50 text-yellow-300';
+            statusMessage.textContent = '[SYS] Requesting Stream Access...';
+            statusMessage.className = 'text-center p-3 mb-6 status-box bg-gray-800 text-yellow-300 font-medium loading';
             startButton.disabled = true;
 
-            // Request camera with preference for 16:9 aspect ratio (e.g., 1280x720)
             navigator.mediaDevices.getUserMedia({ 
                 video: { 
-                    facingMode: 'user', // Prefer user-facing camera
-                    aspectRatio: { ideal: 1.7777 }, // 16/9
+                    facingMode: 'user',
+                    aspectRatio: { ideal: 1.7777 }, 
                     width: { ideal: 1280 },
                     height: { ideal: 720 }
                 } 
@@ -341,26 +755,25 @@
                     stream = mediaStream;
                     video.srcObject = stream;
                     video.onloadedmetadata = () => {
-                        // Set canvas dimensions to match actual video stream dimensions
                         canvas.width = video.videoWidth;
                         canvas.height = video.videoHeight;
                         video.play();
-                        statusMessage.textContent = `Camera active at ${canvas.width}x${canvas.height}. Generating map and detecting objects...`;
-                        statusMessage.className = 'text-center p-3 mb-6 rounded-lg bg-green-900/50 text-green-300';
+                        statusMessage.textContent = `[SYS] Dash.Track Active. Resolution: ${canvas.width}x${canvas.height}.`;
+                        statusMessage.className = 'text-center p-3 mb-6 status-box bg-gray-800 text-indigo-300 font-medium active';
                         stopButton.disabled = false;
                         modeToggle.disabled = false;
-                        fullscreenButton.disabled = false; // Enable fullscreen
+                        fullscreenButton.disabled = false;
+                        recordButton.disabled = false;
+                        aiDetectionToggle.disabled = false; 
                         
-                        // Start animation loop
                         requestAnimationFrame(processFrame);
-                        // Start running object detection in the background
                         runObjectDetection(); 
                     };
                 })
                 .catch(err => {
                     console.error("Error accessing camera:", err);
-                    statusMessage.textContent = `Error: Could not access camera. Check permissions. (${err.name})`;
-                    statusMessage.className = 'text-center p-3 mb-6 rounded-lg bg-red-900/50 text-red-300';
+                    statusMessage.textContent = `[ERR] Access Denied: (${err.name}). Check browser permissions.`;
+                    statusMessage.className = 'text-center p-3 mb-6 status-box bg-gray-800 text-red-300 font-medium';
                     startButton.disabled = false;
                 });
         }
@@ -370,46 +783,69 @@
                 cancelAnimationFrame(animationFrameId);
                 animationFrameId = null;
             }
+            if (isRecording) {
+                stopRecording(); // Stop and save the recording
+            }
             if (stream) {
                 stream.getTracks().forEach(track => track.stop());
                 stream = null;
                 video.srcObject = null;
             }
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-            statusMessage.textContent = 'Camera stopped. Click "Start Mapping" to restart.';
-            statusMessage.className = 'text-center p-3 mb-6 rounded-lg bg-gray-700/50 text-gray-300';
+            statusMessage.textContent = '[SYS] Power Down Complete. System Offline.';
+            statusMessage.className = 'text-center p-3 mb-6 status-box bg-gray-800 text-gray-400 font-medium';
             startButton.disabled = false;
             stopButton.disabled = true;
             modeToggle.disabled = true;
             fullscreenButton.disabled = true;
-            detections = []; // Clear old detections
+            recordButton.disabled = true;
+            aiDetectionToggle.disabled = true; 
+            detections = [];
+            
+            // Reset state and UI toggles
+            isNoiseProtectionActive = false;
+            isLightProtectionActive = false;
+            showProcessedMap = true;
+            setDetectionMode('V1'); // Reset to default V1
+            noiseToggle.classList.remove('active');
+            lightToggle.classList.remove('active');
+            modeToggle.classList.remove('active');
+            modeIcon.textContent = 'visibility';
+            modeText.textContent = 'Depth Map';
+            strobeOverlay.style.opacity = '0';
         }
 
-        /**
-         * Main animation loop: Draws video, applies filter if needed, and draws detections.
-         */
-        function processFrame() {
+        function processFrame(time) {
             if (!video.paused && !video.ended) {
-                // 1. Always draw the video frame first
+                
+                // 1. Draw the video frame
                 ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
                 
-                // 2. If in Pseudo-Map Mode, apply the filter
+                // 2. Apply Light-Based Protection (Flicker)
+                if (isLightProtectionActive) {
+                    // Randomly introduce a brief flash every 10 frames (approx 6 FPS)
+                    if (Math.random() < 0.1) {
+                         // High opacity white flash
+                        strobeOverlay.style.opacity = `${Math.random() * 0.4 + 0.6}`; // 60% to 100%
+                    } else {
+                        strobeOverlay.style.opacity = '0';
+                    }
+                }
+
+                // 3. If in Pseudo-Map Mode, apply the filter
                 if (showProcessedMap) {
                     applyPseudoDepthFilter();
                 }
 
-                // 3. Draw object detection results (on top of map or video)
+                // 4. Draw object detection results (on top of map or video)
                 drawDetections();
             }
             
-            // 4. Run detection periodically and request the next frame
+            // 5. Run detection periodically and request the next frame
             runObjectDetection();
             animationFrameId = requestAnimationFrame(processFrame);
         }
 
-        /**
-         * Applies the combined Gaussian Blur and Sobel Filter.
-         */
         function applyPseudoDepthFilter() {
             let imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
             let data = imageData.data;
@@ -418,11 +854,27 @@
             
             const grayData = new Array(width * height);
 
-            // 1. Convert to grayscale 
+            // 1. Convert to grayscale and apply Noise Protection if active
             for (let i = 0; i < data.length; i += 4) {
-                const r = data[i];
-                const g = data[i + 1];
-                const b = data[i + 2];
+                let r = data[i];
+                let g = data[i + 1];
+                let b = data[i + 2];
+                
+                // --- Noise-Injection ---
+                if (isNoiseProtectionActive) {
+                    const noiseAmplitude = (noiseLevel / 100) * 128; // Max 128 noise magnitude
+                    const randomNoise = (Math.random() * 2 - 1) * noiseAmplitude; // -A to +A
+                    
+                    r = Math.min(255, Math.max(0, r + randomNoise));
+                    g = Math.min(255, Math.max(0, g + randomNoise));
+                    b = Math.min(255, Math.max(0, b + randomNoise));
+
+                    data[i] = r;
+                    data[i + 1] = g;
+                    data[i + 2] = b;
+                }
+                // -----------------------
+
                 const gray = 0.2126 * r + 0.7152 * g + 0.0722 * b;
                 grayData[i / 4] = gray;
             }
@@ -438,7 +890,6 @@
                     let Gx = 0;
                     let Gy = 0;
 
-                    // Convolution calculation using the blurred data
                     for (let ky = -1; ky <= 1; ky++) {
                         for (let kx = -1; kx <= 1; kx++) {
                             const pixelIndex = (y + ky) * width + (x + kx);
@@ -451,14 +902,12 @@
                         }
                     }
 
-                    // Gradient magnitude (Edge strength)
                     const magnitude = Math.sqrt(Gx * Gx + Gy * Gy);
-                    // Use adjustable sensitivity here:
                     const edgeStrength = Math.min(255, Math.max(0, magnitude * edgeSensitivity)); 
 
                     // Color mapping: Blue (far/weak edge) to Red (near/strong edge)
                     let r, g, b;
-                    const t = edgeStrength / 255.0; // t from 0 to 1
+                    const t = edgeStrength / 255.0; 
 
                     if (t < 0.5) {
                         r = 0;
@@ -471,9 +920,10 @@
                     }
 
                     // Apply the new color to the image data array
-                    data[i * 4] = r;
-                    data[i * 4 + 1] = g;
-                    data[i * 4 + 2] = b;
+                    const dataIndex = i * 4;
+                    data[dataIndex] = r;
+                    data[dataIndex + 1] = g;
+                    data[dataIndex + 2] = b;
                 }
             }
 
@@ -484,7 +934,7 @@
         document.addEventListener('DOMContentLoaded', () => {
             loadDetectionModel();
             updateSensitivity(sensitivityInput.value);
-            // Add the stop function to handle page unload gracefully
+            updateNoiseLevel(noiseLevelInput.value);
             window.addEventListener('beforeunload', stopCamera);
         });
 

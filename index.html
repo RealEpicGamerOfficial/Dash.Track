@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Webcam Pseudo-Depth/Object Mapper</title>
+    <!-- Load TensorFlow.js and COCO-SSD for Object Detection -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Load Google Material Symbols (Filled) -->
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    
+    <style>
+        /* Custom styles for canvas and video alignment */
+        .camera-container {
+            position: relative;
+            width: 100%;
+            max-width: 800px;
+            margin: auto;
+            border-radius: 1.5rem; /* rounded-3xl */
+            overflow: hidden;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            border: 4px solid #4f46e5; /* Border to highlight the view area */
+            transition: all 0.3s ease-in-out;
+        }
+        
+        /* Ensure the container fills the screen in fullscreen mode */
+        .camera-container:fullscreen {
+            max-width: 100vw;
+            max-height: 100vh;
+            width: 100vw;
+            height: 100vh;
+            border-radius: 0;
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: #0d0d0d;
+        }
+
+        #webcamVideo {
+            /* Video element is hidden but used as the source */
+            display: none;
+        }
+        #outputCanvas {
+            display: block;
+            width: 100%;
+            height: auto;
+            background-color: #0d0d0d;
+            /* In fullscreen, make sure the canvas fits the window */
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain; 
+        }
+    </style>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-gray-900 text-white min-h-screen p-4 sm:p-8 font-sans">
+
+    <!-- Full Screen Warning Modal -->
+    <div id="warningModal" class="fixed inset-0 z-50 flex items-center justify-center bg-gray-900 bg-opacity-95 backdrop-blur-sm">
+        <div class="bg-gray-800 p-8 rounded-2xl shadow-2xl max-w-lg w-full border border-yellow-500">
+            <h2 class="text-3xl font-extrabold text-yellow-400 mb-4 flex items-center">
+                <span class="material-icons text-4xl mr-3">warning</span>
+                Important Notice
+            </h2>
+            <!-- Text updated to remove asterisks/forced bolding -->
+            <p class="text-gray-300 leading-relaxed mb-6">
+                [!] Notice, this uses a camera, likely your webcam, to preform a ToF (Time of Flight) sensor simulation. It utilizes 3rd party systems (TensorFlow.js) to detect objects, humans, animals, and more directly within your browser. No video data leaves your device.
+            </p>
+            <button onclick="document.getElementById('warningModal').classList.add('hidden')" class="w-full py-3 bg-yellow-600 hover:bg-yellow-700 transition duration-150 text-black font-bold rounded-xl shadow-md">
+                I Understand and Accept
+            </button>
+        </div>
+    </div>
+
+    <div class="max-w-4xl mx-auto">
+        <h1 class="text-4xl font-bold mb-4 text-center text-indigo-400">Advanced Pseudo-Depth & Object Mapper</h1>
+        <p class="text-center text-gray-400 mb-8">
+            Combines edge mapping with machine learning to detect people/objects.
+        </p>
+
+        <div id="statusMessage" class="text-center p-3 mb-6 rounded-lg bg-yellow-900/50 text-yellow-300">
+            Initializing machine learning model and camera...
+        </div>
+
+        <!-- Controls Section -->
+        <div class="mb-8 p-4 bg-gray-800 rounded-xl shadow-inner">
+            <label for="sensitivity" class="block text-sm font-medium text-gray-300 mb-2">
+                Edge Map Sensitivity: <span id="sensitivityValue" class="font-bold text-indigo-400">1.5</span>x
+            </label>
+            <input type="range" id="sensitivity" min="0.5" max="4.0" step="0.1" value="1.5" oninput="updateSensitivity(this.value)" class="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer range-lg">
+            <p class="text-xs text-gray-500 mt-2">Higher sensitivity means weaker edges appear stronger ("closer").</p>
+        </div>
+        <!-- End Controls Section -->
+
+        <div class="camera-container mb-8">
+            <video id="webcamVideo" autoplay playsinline muted></video>
+            <!-- Default canvas dimensions set to 16:9 ratio -->
+            <canvas id="outputCanvas" width="800" height="450"></canvas>
+        </div>
+
+        <div class="flex flex-col sm:flex-row justify-center gap-4">
+            <!-- Start Mapping Button (Icon: videocam) -->
+            <button id="startButton" onclick="startCamera()" class="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 transition duration-150 text-white font-semibold rounded-xl shadow-lg shadow-indigo-500/50 flex items-center justify-center" disabled>
+                <span class="material-icons mr-2">videocam</span>
+                Start Mapping
+            </button>
+            <!-- Switch View Button (Icon: visibility) -->
+            <button id="modeToggle" onclick="toggleMode()" class="px-6 py-3 bg-purple-600 hover:bg-purple-700 transition duration-150 text-white font-semibold rounded-xl flex items-center justify-center" disabled>
+                <span class="material-icons mr-2" id="modeIcon">visibility</span>
+                Switch View (Map)
+            </button>
+            <!-- Fullscreen Button (Icon: fullscreen) -->
+            <button id="fullscreenButton" onclick="requestFullscreen()" class="px-6 py-3 bg-pink-600 hover:bg-pink-700 transition duration-150 text-white font-semibold rounded-xl flex items-center justify-center" disabled>
+                <span class="material-icons mr-2">fullscreen</span>
+                Fullscreen
+            </button>
+            <!-- Stop Button (Icon: stop_circle) -->
+            <button id="stopButton" onclick="stopCamera()" class="px-6 py-3 bg-gray-700 hover:bg-gray-600 transition duration-150 text-white font-semibold rounded-xl flex items-center justify-center" disabled>
+                <span class="material-icons mr-2">stop_circle</span>
+                Stop Camera
+            </button>
+        </div>
+    </div>
+
+    <script>
+        const video = document.getElementById('webcamVideo');
+        const canvas = document.getElementById('outputCanvas');
+        const ctx = canvas.getContext('2d');
+        const statusMessage = document.getElementById('statusMessage');
+        const startButton = document.getElementById('startButton');
+        const stopButton = document.getElementById('stopButton');
+        const modeToggle = document.getElementById('modeToggle');
+        const modeIcon = document.getElementById('modeIcon');
+        const fullscreenButton = document.getElementById('fullscreenButton');
+        const sensitivityInput = document.getElementById('sensitivity');
+        const sensitivityValueSpan = document.getElementById('sensitivityValue');
+
+        let animationFrameId;
+        let stream;
+        let showProcessedMap = true;
+        let edgeSensitivity = 1.5; // Controls the strength of the Sobel filter output
+        
+        let detectionModel = null;
+        let detections = [];
+        let detectionInterval = 500; // Run object detection every 500ms (to save performance)
+        let lastDetectionTime = 0;
+
+        // Sobel kernels for X and Y direction
+        const sobelX = [ [-1, 0, 1], [-2, 0, 2], [-1, 0, 1] ];
+        const sobelY = [ [-1, -2, -1], [0, 0, 0], [1, 2, 1] ];
+
+        // 3x3 Gaussian Blur Kernel (normalized to 1/16)
+        const gaussianKernel = [ [1, 2, 1], [2, 4, 2], [1, 2, 1] ];
+        const kernelSum = 16;
+        
+        // --- Helper Functions ---
+
+        /**
+         * Loads the COCO-SSD object detection model.
+         */
+        async function loadDetectionModel() {
+            statusMessage.textContent = 'Loading Machine Learning Model... (This may take a moment)';
+            try {
+                // Ensure TensorFlow.js is ready before loading the model
+                await tf.ready(); 
+                detectionModel = await cocoSsd.load();
+                statusMessage.textContent = 'Model loaded successfully. Ready to start camera.';
+                statusMessage.className = 'text-center p-3 mb-6 rounded-lg bg-green-900/50 text-green-300';
+                startButton.disabled = false;
+            } catch (error) {
+                console.error("Error loading model:", error);
+                statusMessage.textContent = 'Error loading ML model. Check console for details.';
+                statusMessage.className = 'text-center p-3 mb-6 rounded-lg bg-red-900/50 text-red-300';
+            }
+        }
+
+        /**
+         * Requests fullscreen mode for the canvas container.
+         */
+        function requestFullscreen() {
+            const container = document.querySelector('.camera-container');
+            if (container.requestFullscreen) {
+                container.requestFullscreen();
+            } else if (container.mozRequestFullScreen) { /* Firefox */
+                container.mozRequestFullScreen();
+            } else if (container.webkitRequestFullscreen) { /* Chrome, Safari and Opera */
+                container.webkitRequestFullscreen();
+            } else if (container.msRequestFullscreen) { /* IE/Edge */
+                container.msRequestFullscreen();
+            }
+        }
+
+        /**
+         * Performs object detection on the current video frame.
+         */
+        async function runObjectDetection() {
+            if (detectionModel && video.readyState === 4) {
+                const now = performance.now();
+                if (now - lastDetectionTime < detectionInterval) {
+                    return;
+                }
+                lastDetectionTime = now;
+                
+                try {
+                    // Detect objects in the video element
+                    detections = await detectionModel.detect(video);
+                } catch (error) {
+                    console.error("Detection error:", error);
+                    detections = []; // Clear detections on error
+                }
+            }
+        }
+        
+        /**
+         * Updates the edge sensitivity multiplier from the slider.
+         */
+        function updateSensitivity(value) {
+            edgeSensitivity = parseFloat(value);
+            sensitivityValueSpan.textContent = edgeSensitivity.toFixed(1);
+        }
+
+
+        /**
+         * Applies a 3x3 Gaussian blur filter to the grayscale data.
+         */
+        function applyGaussianBlur(grayData, width, height) {
+            const blurredData = new Array(width * height).fill(0); // Initialize with 0
+            
+            for (let y = 1; y < height - 1; y++) {
+                for (let x = 1; x < width - 1; x++) {
+                    let sum = 0;
+                    for (let ky = -1; ky <= 1; ky++) {
+                        for (let kx = -1; kx <= 1; kx++) {
+                            const pixelIndex = (y + ky) * width + (x + kx);
+                            const kernelValue = gaussianKernel[ky + 1][kx + 1];
+                            sum += grayData[pixelIndex] * kernelValue;
+                        }
+                    }
+                    blurredData[y * width + x] = sum / kernelSum;
+                }
+            }
+            // Handle border pixels (copying original)
+            for (let i = 0; i < width; i++) {
+                blurredData[i] = grayData[i]; 
+                blurredData[(height - 1) * width + i] = grayData[(height - 1) * width + i];
+            }
+            for (let j = 0; j < height; j++) {
+                blurredData[j * width] = grayData[j * width]; 
+                blurredData[j * width + width - 1] = grayData[j * width + width - 1];
+            }
+            return blurredData;
+        }
+
+        /**
+         * Draws the bounding boxes and labels for detected objects.
+         */
+        function drawDetections() {
+            // Draw detections regardless of view mode, they overlay the canvas
+            ctx.lineWidth = 2;
+            ctx.font = '16px Inter, sans-serif';
+
+            detections.forEach(prediction => {
+                // prediction.bbox is [x, y, width, height] in video coordinates
+                const [x, y, width, height] = prediction.bbox;
+                const score = (prediction.score * 100).toFixed(1);
+                const label = `${prediction.class} (${score}%)`;
+
+                // Set color based on object type
+                if (prediction.class === 'person') {
+                    ctx.strokeStyle = '#34D399'; // Green for people
+                    ctx.fillStyle = '#34D399';
+                } else if (prediction.class === 'cell phone' || prediction.class === 'laptop') {
+                    ctx.strokeStyle = '#FBBF24'; // Amber for tech
+                    ctx.fillStyle = '#FBBF24';
+                } else {
+                    ctx.strokeStyle = '#6366F1'; // Indigo for others
+                    ctx.fillStyle = '#6366F1';
+                }
+
+                // Draw bounding box
+                ctx.strokeRect(x, y, width, height);
+
+                // Draw background for text
+                const textWidth = ctx.measureText(label).width;
+                const textHeight = 20; // Estimated line height
+                ctx.fillRect(x, y - textHeight, textWidth + 8, textHeight);
+
+                // Draw text
+                ctx.fillStyle = '#000000'; // Black text
+                ctx.fillText(label, x + 4, y - 5);
+            });
+        }
+
+
+        // --- Core Application Logic ---
+
+        function toggleMode() {
+            showProcessedMap = !showProcessedMap;
+            // Update button text and icon based on current mode
+            if (showProcessedMap) {
+                modeIcon.textContent = 'visibility';
+                modeToggle.lastChild.textContent = ' Switch View (Map)';
+            } else {
+                modeIcon.textContent = 'photo_camera'; // Use a different icon for raw video
+                modeToggle.lastChild.textContent = ' Switch View (Video)';
+            }
+        }
+
+
+        function startCamera() {
+            if (stream) { stopCamera(); }
+
+            statusMessage.textContent = 'Requesting access to webcam (attempting 16:9 resolution)...';
+            statusMessage.className = 'text-center p-3 mb-6 rounded-lg bg-yellow-900/50 text-yellow-300';
+            startButton.disabled = true;
+
+            // Request camera with preference for 16:9 aspect ratio (e.g., 1280x720)
+            navigator.mediaDevices.getUserMedia({ 
+                video: { 
+                    facingMode: 'user', // Prefer user-facing camera
+                    aspectRatio: { ideal: 1.7777 }, // 16/9
+                    width: { ideal: 1280 },
+                    height: { ideal: 720 }
+                } 
+            })
+                .then(mediaStream => {
+                    stream = mediaStream;
+                    video.srcObject = stream;
+                    video.onloadedmetadata = () => {
+                        // Set canvas dimensions to match actual video stream dimensions
+                        canvas.width = video.videoWidth;
+                        canvas.height = video.videoHeight;
+                        video.play();
+                        statusMessage.textContent = `Camera active at ${canvas.width}x${canvas.height}. Generating map and detecting objects...`;
+                        statusMessage.className = 'text-center p-3 mb-6 rounded-lg bg-green-900/50 text-green-300';
+                        stopButton.disabled = false;
+                        modeToggle.disabled = false;
+                        fullscreenButton.disabled = false; // Enable fullscreen
+                        
+                        // Start animation loop
+                        requestAnimationFrame(processFrame);
+                        // Start running object detection in the background
+                        runObjectDetection(); 
+                    };
+                })
+                .catch(err => {
+                    console.error("Error accessing camera:", err);
+                    statusMessage.textContent = `Error: Could not access camera. Check permissions. (${err.name})`;
+                    statusMessage.className = 'text-center p-3 mb-6 rounded-lg bg-red-900/50 text-red-300';
+                    startButton.disabled = false;
+                });
+        }
+
+        function stopCamera() {
+            if (animationFrameId) {
+                cancelAnimationFrame(animationFrameId);
+                animationFrameId = null;
+            }
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+                stream = null;
+                video.srcObject = null;
+            }
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            statusMessage.textContent = 'Camera stopped. Click "Start Mapping" to restart.';
+            statusMessage.className = 'text-center p-3 mb-6 rounded-lg bg-gray-700/50 text-gray-300';
+            startButton.disabled = false;
+            stopButton.disabled = true;
+            modeToggle.disabled = true;
+            fullscreenButton.disabled = true;
+            detections = []; // Clear old detections
+        }
+
+        /**
+         * Main animation loop: Draws video, applies filter if needed, and draws detections.
+         */
+        function processFrame() {
+            if (!video.paused && !video.ended) {
+                // 1. Always draw the video frame first
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                
+                // 2. If in Pseudo-Map Mode, apply the filter
+                if (showProcessedMap) {
+                    applyPseudoDepthFilter();
+                }
+
+                // 3. Draw object detection results (on top of map or video)
+                drawDetections();
+            }
+            
+            // 4. Run detection periodically and request the next frame
+            runObjectDetection();
+            animationFrameId = requestAnimationFrame(processFrame);
+        }
+
+        /**
+         * Applies the combined Gaussian Blur and Sobel Filter.
+         */
+        function applyPseudoDepthFilter() {
+            let imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            let data = imageData.data;
+            const width = canvas.width;
+            const height = canvas.height;
+            
+            const grayData = new Array(width * height);
+
+            // 1. Convert to grayscale 
+            for (let i = 0; i < data.length; i += 4) {
+                const r = data[i];
+                const g = data[i + 1];
+                const b = data[i + 2];
+                const gray = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+                grayData[i / 4] = gray;
+            }
+
+            // 2. Apply Gaussian Blur
+            const blurredGrayData = applyGaussianBlur(grayData, width, height);
+
+            // 3. Apply Sobel Edge Detection and Pseudo-Depth Coloring
+            for (let y = 1; y < height - 1; y++) {
+                for (let x = 1; x < width - 1; x++) {
+                    const i = y * width + x;
+                    
+                    let Gx = 0;
+                    let Gy = 0;
+
+                    // Convolution calculation using the blurred data
+                    for (let ky = -1; ky <= 1; ky++) {
+                        for (let kx = -1; kx <= 1; kx++) {
+                            const pixelIndex = (y + ky) * width + (x + kx);
+                            const kernelXValue = sobelX[ky + 1][kx + 1];
+                            const kernelYValue = sobelY[ky + 1][kx + 1];
+                            const blurredGrayValue = blurredGrayData[pixelIndex];
+
+                            Gx += blurredGrayValue * kernelXValue;
+                            Gy += blurredGrayValue * kernelYValue;
+                        }
+                    }
+
+                    // Gradient magnitude (Edge strength)
+                    const magnitude = Math.sqrt(Gx * Gx + Gy * Gy);
+                    // Use adjustable sensitivity here:
+                    const edgeStrength = Math.min(255, Math.max(0, magnitude * edgeSensitivity)); 
+
+                    // Color mapping: Blue (far/weak edge) to Red (near/strong edge)
+                    let r, g, b;
+                    const t = edgeStrength / 255.0; // t from 0 to 1
+
+                    if (t < 0.5) {
+                        r = 0;
+                        g = Math.floor(t * 2 * 255);
+                        b = Math.floor(255 - t * 2 * 255);
+                    } else {
+                        r = Math.floor((t - 0.5) * 2 * 255);
+                        g = Math.floor(255 - (t - 0.5) * 2 * 255);
+                        b = 0;
+                    }
+
+                    // Apply the new color to the image data array
+                    data[i * 4] = r;
+                    data[i * 4 + 1] = g;
+                    data[i * 4 + 2] = b;
+                }
+            }
+
+            ctx.putImageData(imageData, 0, 0);
+        }
+
+        // Initial setup
+        document.addEventListener('DOMContentLoaded', () => {
+            loadDetectionModel();
+            updateSensitivity(sensitivityInput.value);
+            // Add the stop function to handle page unload gracefully
+            window.addEventListener('beforeunload', stopCamera);
+        });
+
+    </script>
+</body>
+</html>
